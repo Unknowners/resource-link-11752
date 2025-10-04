@@ -1,22 +1,7 @@
-import { Link, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ArrowRight, Sparkles, Brain, Shield, Zap } from "lucide-react";
+import { Sparkles, Brain, Shield, Zap } from "lucide-react";
 import heroBg from "@/assets/hero-bg.jpg";
-import { useState } from "react";
 
 export default function Home() {
-  const navigate = useNavigate();
-  const [companyEmail, setCompanyEmail] = useState("");
-
-  const handleGetStarted = () => {
-    if (companyEmail) {
-      navigate(`/signup?email=${encodeURIComponent(companyEmail)}`);
-    } else {
-      navigate("/signup");
-    }
-  };
-
   return (
     <div className="flex flex-col min-h-screen">
       {/* Main Hero Section */}
@@ -48,49 +33,10 @@ export default function Home() {
             </h1>
 
             {/* Description */}
-            <p className="mb-10 text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
               Інтелектуальна Q&A платформа для швидкої адаптації команди. 
               Автоматична документація, інтеграції та AI-асистент в одному місці.
             </p>
-
-            {/* Input + CTA */}
-            <div className="mb-8 max-w-2xl mx-auto">
-              <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">
-                <div className="w-full sm:flex-1 max-w-md">
-                  <Input
-                    type="email"
-                    placeholder="Введіть ваш робочий email"
-                    value={companyEmail}
-                    onChange={(e) => setCompanyEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleGetStarted()}
-                    className="h-14 text-lg px-6 bg-background/80 backdrop-blur-sm border-2"
-                  />
-                </div>
-                <Button 
-                  size="lg" 
-                  onClick={handleGetStarted}
-                  className="text-lg px-8 py-6 h-14 shadow-2xl hover:shadow-primary/50 transition-all w-full sm:w-auto"
-                >
-                  Розпочати
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </div>
-              <p className="mt-4 text-sm text-muted-foreground">
-                Безкоштовно на 14 днів • Без кредитної картки
-              </p>
-            </div>
-
-            {/* Secondary Action */}
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
-              <Button 
-                size="lg" 
-                variant="outline" 
-                className="text-base px-8 py-5 border-2 w-full sm:w-auto backdrop-blur-sm" 
-                asChild
-              >
-                <Link to="/login">Вже маєте акаунт?</Link>
-              </Button>
-            </div>
           </div>
         </div>
 
