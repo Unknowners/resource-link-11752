@@ -40,13 +40,34 @@ serve(async (req) => {
       );
     }
 
-    // Fetch available resources for the user's organization
+    // Get user's groups
+    const { data: userGroups } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', userId);
+
+    const userGroupIds = userGroups?.map(g => g.group_id) || [];
+
+    console.log('User groups:', userGroupIds);
+
+    // Get resources accessible to user's groups
+    const { data: accessiblePermissions } = await supabase
+      .from('resource_permissions')
+      .select('resource_id')
+      .in('group_id', userGroupIds);
+
+    const accessibleResourceIds = [...new Set(accessiblePermissions?.map(p => p.resource_id) || [])];
+
+    console.log('Accessible resource IDs:', accessibleResourceIds);
+
+    // Fetch only accessible resources
     const { data: resources } = await supabase
       .from('resources')
       .select('id, name, type, integration, url')
       .eq('organization_id', membership.organization_id)
       .eq('status', 'active')
-      .limit(10);
+      .in('id', accessibleResourceIds)
+      .limit(20);
 
     // Build context from resources
     const context = resources?.map(r => 

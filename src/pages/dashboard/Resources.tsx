@@ -63,11 +63,36 @@ export default function Resources() {
 
       if (!member) return;
 
+      // Get user's groups
+      const { data: userGroups } = await supabase
+        .from('group_members')
+        .select('group_id')
+        .eq('user_id', user.id);
+
+      const userGroupIds = userGroups?.map(g => g.group_id) || [];
+
+      // Get resources accessible to user's groups
+      const { data: accessiblePermissions } = await supabase
+        .from('resource_permissions')
+        .select('resource_id')
+        .in('group_id', userGroupIds);
+
+      const accessibleResourceIds = [...new Set(accessiblePermissions?.map(p => p.resource_id) || [])];
+
+      // If user has no groups or no accessible resources, show empty
+      if (accessibleResourceIds.length === 0) {
+        setResources([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch only accessible resources
       const { data: resourcesData } = await supabase
         .from('resources')
         .select('*')
         .eq('organization_id', member.organization_id)
         .eq('status', 'active')
+        .in('id', accessibleResourceIds)
         .order('name');
 
       setResources(resourcesData || []);
