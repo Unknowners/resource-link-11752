@@ -94,7 +94,17 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Failed to create invitation: ${inviteError.message}`);
     }
 
-    const inviteLink = `${supabaseUrl.replace('.supabase.co', '')}/signup?invite=${token}`;
+    // Build invite link using the caller origin
+    const origin = req.headers.get('origin') || req.headers.get('referer') || '';
+    const baseUrl = origin || supabaseUrl.replace('.supabase.co', '.co'); // fallback to Supabase URL domain if origin missing
+    const inviteLink = `${baseUrl}/signup?invite=${token}`;
+
+    // Ensure Resend API key exists
+    const resendKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendKey) {
+      console.error("RESEND_API_KEY is missing");
+      throw new Error("Email service is not configured");
+    }
 
     const emailResponse = await resend.emails.send({
       from: "AccessHub <onboarding@resend.dev>",
@@ -142,13 +152,22 @@ const handler = async (req: Request): Promise<Response> => {
       `,
     });
 
-    console.log("Email sent successfully:", emailResponse);
+    console.log("Resend response:", emailResponse);
+
+    // Check for errors explicitly from Resend SDK
+    // @ts-ignore - runtime check
+    if (emailResponse?.error) {
+      // Optionally cleanup the invitation if email failed
+      await supabase.from('invitations').delete().eq('token', token);
+      throw new Error(`Email send failed: ${emailResponse.error?.message || 'Unknown error'}`);
+    }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: "Запрошення надіслано успішно",
-        inviteLink 
+        // @ts-ignore
+        emailId: emailResponse?.data?.id || null
       }),
       {
         status: 200,
