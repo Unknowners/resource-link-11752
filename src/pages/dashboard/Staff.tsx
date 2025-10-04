@@ -23,6 +23,7 @@ interface StaffMember {
   status: string;
   invitation_status: string;
   groups: string[];
+  is_pending_invite?: boolean; // Додано для pending запрошень
 }
 
 interface Group {
@@ -105,7 +106,14 @@ export default function Staff() {
         .select('user_id, group_id, groups(name)')
         .in('user_id', members.map(m => m.user_id));
 
-      // Combine data
+      // Get pending invitations
+      const { data: pendingInvites } = await supabase
+        .from('invitations')
+        .select('email, role, created_at, expires_at')
+        .eq('organization_id', member.organization_id)
+        .is('accepted_at', null);
+
+      // Combine existing members data
       const staffData: StaffMember[] = profiles.map(profile => {
         const memberData = members.find(m => m.user_id === profile.id);
         const userGroups = groupMemberships
@@ -121,9 +129,27 @@ export default function Staff() {
           role: memberData?.role || 'member',
           status: memberData?.status || 'active',
           invitation_status: memberData?.invitation_status || 'accepted',
-          groups: userGroups
+          groups: userGroups,
+          is_pending_invite: false
         };
       });
+
+      // Add pending invitations
+      if (pendingInvites) {
+        pendingInvites.forEach(invite => {
+          staffData.push({
+            id: invite.email, // Використовуємо email як тимчасовий ID
+            first_name: null,
+            last_name: null,
+            email: invite.email,
+            role: invite.role || 'member',
+            status: 'pending',
+            invitation_status: 'pending',
+            groups: [],
+            is_pending_invite: true
+          });
+        });
+      }
 
       setStaff(staffData);
     } catch (error) {
@@ -321,6 +347,26 @@ export default function Staff() {
     }
   };
 
+  const handleDeleteInvitation = async (email: string) => {
+    if (!organizationId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('invitations')
+        .delete()
+        .eq('email', email)
+        .eq('organization_id', organizationId);
+
+      if (error) throw error;
+
+      toast.success("Запрошення видалено");
+      loadStaff();
+    } catch (error) {
+      console.error('Error deleting invitation:', error);
+      toast.error("Помилка видалення запрошення");
+    }
+  };
+
   const handleResendInvitation = async (user: StaffMember) => {
     if (!organizationId) return;
 
@@ -481,11 +527,17 @@ export default function Staff() {
                       <div className="flex items-center gap-3">
                         <Avatar>
                           <AvatarFallback className="bg-primary text-primary-foreground">
-                            {getInitials(user.first_name || '', user.last_name || '')}
+                            {user.is_pending_invite 
+                              ? '📧' 
+                              : getInitials(user.first_name || '', user.last_name || '')
+                            }
                           </AvatarFallback>
                         </Avatar>
                         <span className="font-medium">
-                          {user.first_name} {user.last_name}
+                          {user.is_pending_invite 
+                            ? 'Запрошення надіслано' 
+                            : `${user.first_name} ${user.last_name}`
+                          }
                         </span>
                       </div>
                     </TableCell>
@@ -510,10 +562,12 @@ export default function Staff() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditUser(user)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Редагувати
-                          </DropdownMenuItem>
+                          {!user.is_pending_invite && (
+                            <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Редагувати
+                            </DropdownMenuItem>
+                          )}
                           {user.invitation_status === 'pending' && (
                             <DropdownMenuItem onClick={() => handleResendInvitation(user)}>
                               <UserPlus className="mr-2 h-4 w-4" />
@@ -521,7 +575,10 @@ export default function Staff() {
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem 
-                            onClick={() => handleRemoveMember(user.id)}
+                            onClick={() => user.is_pending_invite 
+                              ? handleDeleteInvitation(user.email!) 
+                              : handleRemoveMember(user.id)
+                            }
                             className="text-destructive"
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
