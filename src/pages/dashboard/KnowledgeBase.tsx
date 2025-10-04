@@ -159,14 +159,24 @@ export default function KnowledgeBase() {
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId);
 
-      const { data, error } = await supabase.functions.invoke('knowledge-qa', {
-        body: {
+      const response = await fetch('https://documindsonline.app.n8n.cloud/webhook/94277c56-d3f1-4d6f-b143-26afefe0bcca', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           question: userMessageContent,
           userId: user.id,
-        }
+          organizationId: organizationId,
+        })
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
 
       const assistantMessage: Message = {
         role: "assistant",
