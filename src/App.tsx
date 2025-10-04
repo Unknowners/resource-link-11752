@@ -19,6 +19,8 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import KnowledgeBase from "./pages/dashboard/KnowledgeBase";
+import SkillSmith from "./pages/dashboard/SkillSmith";
+import TeamMemory from "./pages/dashboard/TeamMemory";
 import Staff from "./pages/dashboard/Staff";
 import Groups from "./pages/dashboard/Groups";
 import GroupDetail from "./pages/dashboard/GroupDetail";
@@ -72,6 +74,8 @@ const App = () => (
             <Route index element={<KnowledgeBase />} />
             <Route path="resources" element={<Resources />} />
             <Route path="resources/:id" element={<ResourceDetail />} />
+            <Route path="skillsmith" element={<SkillSmith />} />
+            <Route path="team-memory" element={<TeamMemory />} />
             <Route path="profile" element={<Profile />} />
             
             {/* Legacy routes kept for backwards compatibility */}

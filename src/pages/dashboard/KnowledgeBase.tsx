@@ -2,12 +2,26 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Send, Sparkles, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Send, Sparkles, Loader2, ExternalLink, AlertCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+interface Source {
+  id: string;
+  name: string;
+  type: string;
+  integration: string;
+  url?: string | null;
+}
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  sources?: Source[];
+  timestamp?: string;
 }
 
 export default function KnowledgeBase() {
@@ -38,16 +52,51 @@ export default function KnowledgeBase() {
     setInput("");
     setIsLoading(true);
 
-    // TODO: Integrate with Lovable AI Gateway
-    // For now, mock response
-    setTimeout(() => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error("Необхідна авторизація");
+        setIsLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('knowledge-qa', {
+        body: {
+          question: input,
+          userId: user.id,
+        }
+      });
+
+      if (error) throw error;
+
       const assistantMessage: Message = {
         role: "assistant",
-        content: "Це демо-відповідь. Інтеграція з AI Gateway буде додана пізніше.",
+        content: data.answer,
+        sources: data.sources,
+        timestamp: data.timestamp,
       };
+      
       setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error: any) {
+      console.error('Error calling knowledge-qa:', error);
+      
+      if (error.message?.includes('429')) {
+        toast.error("Перевищено ліміт запитів. Спробуйте пізніше.");
+      } else if (error.message?.includes('402')) {
+        toast.error("Недостатньо кредитів для AI запитів.");
+      } else {
+        toast.error("Помилка при обробці запиту");
+      }
+      
+      const errorMessage: Message = {
+        role: "assistant",
+        content: "Вибачте, виникла помилка при обробці вашого запиту. Спробуйте ще раз.",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -91,7 +140,7 @@ export default function KnowledgeBase() {
                   </div>
                 )}
                 <div
-                  className={`rounded-2xl px-4 py-3 max-w-[80%] ${
+                  className={`rounded-2xl px-4 py-3 max-w-[80%] space-y-3 ${
                     message.role === "user"
                       ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-secondary-foreground"
@@ -100,6 +149,27 @@ export default function KnowledgeBase() {
                   <p className="text-sm sm:text-base whitespace-pre-wrap">
                     {message.content}
                   </p>
+                  
+                  {/* Sources */}
+                  {message.sources && message.sources.length > 0 && (
+                    <div className="border-t pt-3 space-y-2">
+                      <p className="text-xs font-semibold opacity-70">Джерела:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {message.sources.map((source) => (
+                          <Badge
+                            key={source.id}
+                            variant="outline"
+                            className="text-xs"
+                          >
+                            {source.name}
+                            {source.url && (
+                              <ExternalLink className="h-3 w-3 ml-1" />
+                            )}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {message.role === "user" && (
                   <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">

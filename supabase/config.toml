@@ -1,1 +1,4 @@
 project_id = "rbmepcfznvcskxayuisp"
+
+[functions.knowledge-qa]
+verify_jwt = false

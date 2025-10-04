@@ -16,11 +16,15 @@ import {
   Sparkles,
   Menu,
   X,
+  BookOpen,
+  Lightbulb,
 } from "lucide-react";
 
 const navigation = [
   { name: "База знань", href: "/app", icon: FileText },
   { name: "Джерела", href: "/app/resources", icon: FolderOpen },
+  { name: "SkillSmith", href: "/app/skillsmith", icon: BookOpen },
+  { name: "Team Memory", href: "/app/team-memory", icon: Lightbulb },
 ];
 
 export default function DashboardLayout() {
