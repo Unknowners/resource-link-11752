@@ -26,11 +26,12 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { integration_id, email, api_token, site_url } = await req.json();
+    const { integration_id, email, api_token, site_url, integration_type } = await req.json();
 
-    console.log('Validating API token for integration:', integration_id);
+    console.log('Validating API token for integration:', integration_id, 'type:', integration_type);
 
-    // Отримуємо site URL
+    // Визначаємо тип інтеграції
+    let integrationType = integration_type;
     let atlassianSiteUrl = site_url;
     
     // Якщо є integration_id, отримуємо дані з БД
@@ -45,210 +46,243 @@ Deno.serve(async (req) => {
         throw new Error('Integration not found');
       }
 
+      integrationType = integration.type;
+      
       // Якщо site_url не передано, беремо з інтеграції
       if (!atlassianSiteUrl) {
         atlassianSiteUrl = integration.oauth_authorize_url;
       }
     }
     
-    if (!atlassianSiteUrl) {
+    // Для Atlassian потрібен site URL
+    if (integrationType === 'atlassian' && !atlassianSiteUrl) {
       throw new Error('Atlassian site URL is required');
     }
 
     let validationStatus = 'pending';
     let validationError = null;
 
-    // Валідуємо Atlassian (завжди, бо це єдиний supported тип для API token)
-    // Створюємо Basic Auth header
-    const authString = btoa(`${email}:${api_token}`);
-    
-    try {
-      // Нормалізуємо URL (додаємо https:// якщо немає)
-      let normalizedUrl = atlassianSiteUrl.trim();
-      if (!normalizedUrl.startsWith('http')) {
-        normalizedUrl = `https://${normalizedUrl}`;
-      }
-      
-      // Тестуємо доступ до Jira API
-      const jiraTestUrl = `${normalizedUrl}/rest/api/3/myself`;
-      console.log('Testing Jira API access:', jiraTestUrl);
-      
-      const testResponse = await fetch(jiraTestUrl, {
-        headers: {
-          'Authorization': `Basic ${authString}`,
-          'Accept': 'application/json',
-        },
-      });
-
-      if (testResponse.ok) {
-        const userData = await testResponse.json();
-        console.log('Jira authentication successful for user:', userData.emailAddress);
-        validationStatus = 'validated';
+    // Розділяємо логіку валідації для Notion і Atlassian
+    if (integrationType === 'notion') {
+      // Валідація Notion
+      try {
+        console.log('Validating Notion integration...');
         
-        // Синхронізуємо ресурси тільки якщо є integration_id
-        if (integration_id) {
-          const { data: integration } = await supabaseClient
-            .from('integrations')
-            .select('organization_id, name')
-            .eq('id', integration_id)
-            .single();
+        const testResponse = await fetch('https://api.notion.com/v1/users/me', {
+          headers: {
+            'Authorization': `Bearer ${api_token}`,
+            'Notion-Version': '2022-06-28',
+          },
+        });
 
-          if (integration) {
-            const siteName = normalizedUrl.replace('https://', '').replace('http://', '');
-            let syncedCount = 0;
-            const syncTime = new Date().toISOString();
-            const foundResourceNames = new Set<string>();
-            
-            // 1. Витягуємо Jira проекти
-            try {
-              const projectsResponse = await fetch(`${normalizedUrl}/rest/api/3/project`, {
-                headers: {
-                  'Authorization': `Basic ${authString}`,
-                  'Accept': 'application/json',
-                },
-              });
-
-              if (projectsResponse.ok) {
-                const projects = await projectsResponse.json();
-                console.log(`Found ${projects.length} Jira projects`);
-                
-                for (const project of projects) {
-                  const resourceName = `${project.key} - ${project.name}`;
-                  foundResourceNames.add(resourceName);
-                  
-                  const { data: existing } = await supabaseClient
-                    .from('resources')
-                    .select('id')
-                    .eq('organization_id', integration.organization_id)
-                    .eq('name', resourceName)
-                    .eq('integration', integration.name)
-                    .maybeSingle();
-
-                  if (!existing) {
-                    await supabaseClient
-                      .from('resources')
-                      .insert({
-                        organization_id: integration.organization_id,
-                        name: resourceName,
-                        type: 'jira_project',
-                        integration: integration.name,
-                        url: `${normalizedUrl}/browse/${project.key}`,
-                        status: 'active',
-                        last_synced_at: syncTime,
-                      });
-                    syncedCount++;
-                  } else {
-                    // Оновлюємо статус на active
-                    await supabaseClient
-                      .from('resources')
-                      .update({
-                        status: 'active',
-                        last_synced_at: syncTime,
-                        url: `${normalizedUrl}/browse/${project.key}`,
-                      })
-                      .eq('id', existing.id);
-                  }
-                }
-              }
-            } catch (err) {
-              console.error('Failed to fetch Jira projects:', err);
-            }
-
-            // 2. Витягуємо Confluence spaces
-            try {
-              const spacesResponse = await fetch(`${normalizedUrl}/wiki/rest/api/space`, {
-                headers: {
-                  'Authorization': `Basic ${authString}`,
-                  'Accept': 'application/json',
-                },
-              });
-
-              if (spacesResponse.ok) {
-                const spacesData = await spacesResponse.json();
-                const spaces = spacesData.results || [];
-                console.log(`Found ${spaces.length} Confluence spaces`);
-                
-                for (const space of spaces) {
-                  const resourceName = `${space.key} - ${space.name}`;
-                  foundResourceNames.add(resourceName);
-                  
-                  const { data: existing } = await supabaseClient
-                    .from('resources')
-                    .select('id')
-                    .eq('organization_id', integration.organization_id)
-                    .eq('name', resourceName)
-                    .eq('integration', integration.name)
-                    .maybeSingle();
-
-                  if (!existing) {
-                    await supabaseClient
-                      .from('resources')
-                      .insert({
-                        organization_id: integration.organization_id,
-                        name: resourceName,
-                        type: 'confluence_space',
-                        integration: integration.name,
-                        url: `${normalizedUrl}/wiki/spaces/${space.key}`,
-                        status: 'active',
-                        last_synced_at: syncTime,
-                      });
-                    syncedCount++;
-                  } else {
-                    // Оновлюємо статус на active
-                    await supabaseClient
-                      .from('resources')
-                      .update({
-                        status: 'active',
-                        last_synced_at: syncTime,
-                        url: `${normalizedUrl}/wiki/spaces/${space.key}`,
-                      })
-                      .eq('id', existing.id);
-                  }
-                }
-              }
-            } catch (err) {
-              console.error('Failed to fetch Confluence spaces:', err);
-            }
-
-            // 3. Помічаємо ресурси які більше не існують як 'removed'
-            const { data: allResources } = await supabaseClient
-              .from('resources')
-              .select('id, name, status')
-              .eq('organization_id', integration.organization_id)
-              .eq('integration', integration.name)
-              .in('type', ['jira_project', 'confluence_space']);
-
-            if (allResources) {
-              for (const resource of allResources) {
-                if (!foundResourceNames.has(resource.name) && resource.status !== 'removed') {
-                  await supabaseClient
-                    .from('resources')
-                    .update({ status: 'removed' })
-                    .eq('id', resource.id);
-                  console.log(`Marked as removed: ${resource.name}`);
-                }
-              }
-            }
-
-            console.log(`Synced ${syncedCount} new resources from ${siteName}`);
-            
-            // Оновлюємо last_sync_at
-            await supabaseClient
-              .from('integrations')
-              .update({ last_sync_at: syncTime })
-              .eq('id', integration_id);
-          }
+        if (testResponse.ok) {
+          const userData = await testResponse.json();
+          console.log('Notion authentication successful:', userData);
+          validationStatus = 'validated';
+        } else {
+          const errorText = await testResponse.text();
+          console.error('Notion validation failed:', testResponse.status, errorText);
+          validationStatus = 'error';
+          validationError = `Authentication failed: ${testResponse.status}. Check Integration Secret.`;
         }
-      } else {
-        const errorText = await testResponse.text();
-        console.error('Validation failed:', testResponse.status, errorText);
+      } catch (validationErr) {
+        console.error('Notion validation error:', validationErr);
         validationStatus = 'error';
-        validationError = `Authentication failed: ${testResponse.status}. Check email and token.`;
+        validationError = validationErr instanceof Error ? validationErr.message : 'Unknown error';
       }
-    } catch (validationErr) {
-      console.error('Validation error:', validationErr);
-      validationStatus = 'error';
-      validationError = validationErr instanceof Error ? validationErr.message : 'Unknown error';
+    } else {
+      // Валідація Atlassian (Jira/Confluence)
+      // Створюємо Basic Auth header
+      const authString = btoa(`${email}:${api_token}`);
+      
+      try {
+        // Нормалізуємо URL (додаємо https:// якщо немає)
+        let normalizedUrl = atlassianSiteUrl!.trim();
+        if (!normalizedUrl.startsWith('http')) {
+          normalizedUrl = `https://${normalizedUrl}`;
+        }
+        
+        // Тестуємо доступ до Jira API
+        const jiraTestUrl = `${normalizedUrl}/rest/api/3/myself`;
+        console.log('Testing Jira API access:', jiraTestUrl);
+        
+        const testResponse = await fetch(jiraTestUrl, {
+          headers: {
+            'Authorization': `Basic ${authString}`,
+            'Accept': 'application/json',
+          },
+        });
+
+        if (testResponse.ok) {
+          const userData = await testResponse.json();
+          console.log('Jira authentication successful for user:', userData.emailAddress);
+          validationStatus = 'validated';
+          
+          // Синхронізуємо ресурси тільки якщо є integration_id
+          if (integration_id) {
+            const { data: integration } = await supabaseClient
+              .from('integrations')
+              .select('organization_id, name')
+              .eq('id', integration_id)
+              .single();
+
+            if (integration) {
+              const siteName = normalizedUrl.replace('https://', '').replace('http://', '');
+              let syncedCount = 0;
+              const syncTime = new Date().toISOString();
+              const foundResourceNames = new Set<string>();
+              
+              // 1. Витягуємо Jira проекти
+              try {
+                const projectsResponse = await fetch(`${normalizedUrl}/rest/api/3/project`, {
+                  headers: {
+                    'Authorization': `Basic ${authString}`,
+                    'Accept': 'application/json',
+                  },
+                });
+
+                if (projectsResponse.ok) {
+                  const projects = await projectsResponse.json();
+                  console.log(`Found ${projects.length} Jira projects`);
+                  
+                  for (const project of projects) {
+                    const resourceName = `${project.key} - ${project.name}`;
+                    foundResourceNames.add(resourceName);
+                    
+                    const { data: existing } = await supabaseClient
+                      .from('resources')
+                      .select('id')
+                      .eq('organization_id', integration.organization_id)
+                      .eq('name', resourceName)
+                      .eq('integration', integration.name)
+                      .maybeSingle();
+
+                    if (!existing) {
+                      await supabaseClient
+                        .from('resources')
+                        .insert({
+                          organization_id: integration.organization_id,
+                          name: resourceName,
+                          type: 'jira_project',
+                          integration: integration.name,
+                          url: `${normalizedUrl}/browse/${project.key}`,
+                          status: 'active',
+                          last_synced_at: syncTime,
+                        });
+                      syncedCount++;
+                    } else {
+                      // Оновлюємо статус на active
+                      await supabaseClient
+                        .from('resources')
+                        .update({
+                          status: 'active',
+                          last_synced_at: syncTime,
+                          url: `${normalizedUrl}/browse/${project.key}`,
+                        })
+                        .eq('id', existing.id);
+                    }
+                  }
+                }
+              } catch (err) {
+                console.error('Failed to fetch Jira projects:', err);
+              }
+
+              // 2. Витягуємо Confluence spaces
+              try {
+                const spacesResponse = await fetch(`${normalizedUrl}/wiki/rest/api/space`, {
+                  headers: {
+                    'Authorization': `Basic ${authString}`,
+                    'Accept': 'application/json',
+                  },
+                });
+
+                if (spacesResponse.ok) {
+                  const spacesData = await spacesResponse.json();
+                  const spaces = spacesData.results || [];
+                  console.log(`Found ${spaces.length} Confluence spaces`);
+                  
+                  for (const space of spaces) {
+                    const resourceName = `${space.key} - ${space.name}`;
+                    foundResourceNames.add(resourceName);
+                    
+                    const { data: existing } = await supabaseClient
+                      .from('resources')
+                      .select('id')
+                      .eq('organization_id', integration.organization_id)
+                      .eq('name', resourceName)
+                      .eq('integration', integration.name)
+                      .maybeSingle();
+
+                    if (!existing) {
+                      await supabaseClient
+                        .from('resources')
+                        .insert({
+                          organization_id: integration.organization_id,
+                          name: resourceName,
+                          type: 'confluence_space',
+                          integration: integration.name,
+                          url: `${normalizedUrl}/wiki/spaces/${space.key}`,
+                          status: 'active',
+                          last_synced_at: syncTime,
+                        });
+                      syncedCount++;
+                    } else {
+                      // Оновлюємо статус на active
+                      await supabaseClient
+                        .from('resources')
+                        .update({
+                          status: 'active',
+                          last_synced_at: syncTime,
+                          url: `${normalizedUrl}/wiki/spaces/${space.key}`,
+                        })
+                        .eq('id', existing.id);
+                    }
+                  }
+                }
+              } catch (err) {
+                console.error('Failed to fetch Confluence spaces:', err);
+              }
+
+              // 3. Помічаємо ресурси які більше не існують як 'removed'
+              const { data: allResources } = await supabaseClient
+                .from('resources')
+                .select('id, name, status')
+                .eq('organization_id', integration.organization_id)
+                .eq('integration', integration.name)
+                .in('type', ['jira_project', 'confluence_space']);
+
+              if (allResources) {
+                for (const resource of allResources) {
+                  if (!foundResourceNames.has(resource.name) && resource.status !== 'removed') {
+                    await supabaseClient
+                      .from('resources')
+                      .update({ status: 'removed' })
+                      .eq('id', resource.id);
+                    console.log(`Marked as removed: ${resource.name}`);
+                  }
+                }
+              }
+
+              console.log(`Synced ${syncedCount} new resources from ${siteName}`);
+              
+              // Оновлюємо last_sync_at
+              await supabaseClient
+                .from('integrations')
+                .update({ last_sync_at: syncTime })
+                .eq('id', integration_id);
+            }
+          }
+        } else {
+          const errorText = await testResponse.text();
+          console.error('Validation failed:', testResponse.status, errorText);
+          validationStatus = 'error';
+          validationError = `Authentication failed: ${testResponse.status}. Check email and token.`;
+        }
+      } catch (validationErr) {
+        console.error('Validation error:', validationErr);
+        validationStatus = 'error';
+        validationError = validationErr instanceof Error ? validationErr.message : 'Unknown error';
+      }
     }
 
     // Зберігаємо credentials тільки якщо є integration_id

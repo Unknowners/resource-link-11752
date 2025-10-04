@@ -218,6 +218,7 @@ export default function Integrations() {
             email: formData.oauth_client_id,
             api_token: formData.oauth_client_secret,
             site_url: formData.oauth_authorize_url,
+            integration_type: formData.type,
           },
         });
 
