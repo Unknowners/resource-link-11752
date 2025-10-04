@@ -5,18 +5,36 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PublicLayout } from "./components/layout/PublicLayout";
 import Home from "./pages/Home";
+import Product from "./pages/Product";
 import Features from "./pages/Features";
 import Pricing from "./pages/Pricing";
+import Docs from "./pages/Docs";
 import Contact from "./pages/Contact";
+import Demo from "./pages/Demo";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Onboarding from "./pages/Onboarding";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import Overview from "./pages/dashboard/Overview";
-import Resources from "./pages/dashboard/Resources";
-import Groups from "./pages/dashboard/Groups";
 import Staff from "./pages/dashboard/Staff";
+import Groups from "./pages/dashboard/Groups";
+import GroupDetail from "./pages/dashboard/GroupDetail";
+import Resources from "./pages/dashboard/Resources";
+import ResourceDetail from "./pages/dashboard/ResourceDetail";
 import Integrations from "./pages/dashboard/Integrations";
+import AccessMatrix from "./pages/dashboard/AccessMatrix";
+import Search from "./pages/dashboard/Search";
+import Audit from "./pages/dashboard/Audit";
+import DashboardSettings from "./pages/dashboard/Settings";
+import Profile from "./pages/dashboard/Profile";
+import AdminLayout from "./pages/admin/AdminLayout";
+import AdminOrgs from "./pages/admin/AdminOrgs";
+import AdminOrgDetail from "./pages/admin/AdminOrgDetail";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminIntegrations from "./pages/admin/AdminIntegrations";
+import AdminAudit from "./pages/admin/AdminAudit";
 import NotFound from "./pages/NotFound";
+import Forbidden from "./pages/Forbidden";
 
 const queryClient = new QueryClient();
 
@@ -28,27 +46,47 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           {/* Public Routes */}
-          <Route element={<PublicLayout><div /></PublicLayout>}>
-            <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
-            <Route path="/features" element={<PublicLayout><Features /></PublicLayout>} />
-            <Route path="/pricing" element={<PublicLayout><Pricing /></PublicLayout>} />
-            <Route path="/contact" element={<PublicLayout><Contact /></PublicLayout>} />
-          </Route>
+          <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
+          <Route path="/product" element={<PublicLayout><Product /></PublicLayout>} />
+          <Route path="/features" element={<PublicLayout><Features /></PublicLayout>} />
+          <Route path="/pricing" element={<PublicLayout><Pricing /></PublicLayout>} />
+          <Route path="/docs" element={<PublicLayout><Docs /></PublicLayout>} />
+          <Route path="/contact" element={<PublicLayout><Contact /></PublicLayout>} />
+          <Route path="/demo" element={<PublicLayout><Demo /></PublicLayout>} />
 
           {/* Auth Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/onboarding" element={<Onboarding />} />
 
-          {/* Dashboard Routes */}
-          <Route path="/dashboard" element={<DashboardLayout />}>
+          {/* Organization Portal (/app) */}
+          <Route path="/app" element={<DashboardLayout />}>
             <Route index element={<Overview />} />
-            <Route path="resources" element={<Resources />} />
-            <Route path="groups" element={<Groups />} />
             <Route path="staff" element={<Staff />} />
+            <Route path="groups" element={<Groups />} />
+            <Route path="groups/:id" element={<GroupDetail />} />
+            <Route path="resources" element={<Resources />} />
+            <Route path="resources/:id" element={<ResourceDetail />} />
             <Route path="integrations" element={<Integrations />} />
+            <Route path="access-matrix" element={<AccessMatrix />} />
+            <Route path="search" element={<Search />} />
+            <Route path="audit" element={<Audit />} />
+            <Route path="settings" element={<DashboardSettings />} />
+            <Route path="profile" element={<Profile />} />
           </Route>
 
-          {/* 404 */}
+          {/* Super Admin Console (/admin) */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminOrgs />} />
+            <Route path="orgs" element={<AdminOrgs />} />
+            <Route path="orgs/:orgId" element={<AdminOrgDetail />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="integrations" element={<AdminIntegrations />} />
+            <Route path="audit" element={<AdminAudit />} />
+          </Route>
+
+          {/* Error Pages */}
+          <Route path="/403" element={<Forbidden />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
