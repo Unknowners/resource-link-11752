@@ -79,7 +79,82 @@ Deno.serve(async (req) => {
       ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
       : null;
 
-    // Зберігаємо токени
+    // Перевіряємо які scopes реально були надані
+    const grantedScopes = tokens.scope || integration.oauth_scopes;
+    const requestedScopes = integration.oauth_scopes?.split(' ') || [];
+    const grantedScopesArray = grantedScopes.split(' ');
+    const missingScopes = requestedScopes.filter((scope: string) => !grantedScopesArray.includes(scope));
+
+    console.log('Requested scopes:', requestedScopes);
+    console.log('Granted scopes:', grantedScopesArray);
+    console.log('Missing scopes:', missingScopes);
+
+    // Валідуємо connection тестовим запитом
+    let validationStatus = 'pending';
+    let validationError = null;
+
+    try {
+      // Для Atlassian - тестуємо доступ до accessible-resources
+      if (integration.type === 'atlassian') {
+        const testResponse = await fetch('https://api.atlassian.com/oauth/token/accessible-resources', {
+          headers: {
+            'Authorization': `Bearer ${tokens.access_token}`,
+            'Accept': 'application/json',
+          },
+        });
+
+        if (testResponse.ok) {
+          const resources = await testResponse.json();
+          console.log('Atlassian resources accessible:', resources.length);
+          validationStatus = 'validated';
+        } else {
+          const errorText = await testResponse.text();
+          console.error('Validation failed:', errorText);
+          validationError = `Failed to access Atlassian resources: ${errorText}`;
+          validationStatus = 'error';
+        }
+      }
+      // Для Google - перевіряємо userinfo
+      else if (integration.type === 'google_drive') {
+        const testResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: {
+            'Authorization': `Bearer ${tokens.access_token}`,
+          },
+        });
+
+        if (testResponse.ok) {
+          validationStatus = 'validated';
+        } else {
+          validationError = 'Failed to access Google user info';
+          validationStatus = 'error';
+        }
+      }
+      // Для GitHub - перевіряємо user
+      else if (integration.type === 'github') {
+        const testResponse = await fetch('https://api.github.com/user', {
+          headers: {
+            'Authorization': `Bearer ${tokens.access_token}`,
+            'Accept': 'application/vnd.github+json',
+          },
+        });
+
+        if (testResponse.ok) {
+          validationStatus = 'validated';
+        } else {
+          validationError = 'Failed to access GitHub user info';
+          validationStatus = 'error';
+        }
+      } else {
+        // Для інших провайдерів - вважаємо validated якщо токен отримано
+        validationStatus = 'validated';
+      }
+    } catch (validationErr) {
+      console.error('Validation error:', validationErr);
+      validationError = validationErr instanceof Error ? validationErr.message : 'Unknown validation error';
+      validationStatus = 'error';
+    }
+
+    // Зберігаємо токени та статус валідації
     const { error: credentialsError } = await supabaseClient
       .from('integration_credentials')
       .upsert({
@@ -89,6 +164,10 @@ Deno.serve(async (req) => {
         refresh_token: tokens.refresh_token || null,
         token_expires_at: expiresAt,
         scope: tokens.scope || integration.oauth_scopes,
+        granted_scopes: grantedScopes,
+        connection_status: validationStatus,
+        validation_error: validationError,
+        last_validated_at: new Date().toISOString(),
       });
 
     if (credentialsError) {
@@ -96,12 +175,18 @@ Deno.serve(async (req) => {
       throw credentialsError;
     }
 
-    console.log('Credentials saved successfully');
+    console.log('Credentials saved successfully with status:', validationStatus);
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: 'Авторизація успішна! Ваш акаунт підключено.' 
+        message: validationStatus === 'validated' 
+          ? 'Авторизація успішна! Підключення перевірено.' 
+          : validationStatus === 'error'
+          ? `Токен отримано, але є проблема: ${validationError}`
+          : 'Авторизація успішна! Перевірка підключення...',
+        status: validationStatus,
+        missing_scopes: missingScopes.length > 0 ? missingScopes : undefined,
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

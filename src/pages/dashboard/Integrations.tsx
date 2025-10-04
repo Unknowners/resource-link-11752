@@ -30,6 +30,10 @@ interface IntegrationCredential {
   integration_id: string;
   user_id: string;
   token_expires_at: string | null;
+  connection_status: string;
+  validation_error: string | null;
+  granted_scopes: string | null;
+  last_validated_at: string | null;
 }
 
 export default function Integrations() {
@@ -208,7 +212,7 @@ export default function Integrations() {
 
   const handleOAuthCallback = async (code: string, integrationId: string) => {
     try {
-      toast.loading('Обробка авторизації...');
+      const loadingToast = toast.loading('Обробка авторизації...');
       
       const { data, error } = await supabase.functions.invoke('oauth-callback', {
         body: {
@@ -218,10 +222,23 @@ export default function Integrations() {
         },
       });
 
+      toast.dismiss(loadingToast);
+
       if (error) throw error;
 
       if (data?.success) {
-        toast.success('Успішно підключено! Токени збережено.');
+        if (data.status === 'validated') {
+          toast.success(data.message);
+        } else if (data.status === 'error') {
+          toast.error(data.message);
+        } else {
+          toast.info(data.message);
+        }
+        
+        if (data.missing_scopes && data.missing_scopes.length > 0) {
+          toast.warning(`Увага: не надано scopes: ${data.missing_scopes.join(', ')}`);
+        }
+        
         loadIntegrations();
       } else {
         throw new Error(data?.error || 'Невідома помилка');
@@ -282,6 +299,18 @@ export default function Integrations() {
 
   const isUserConnected = (integrationId: string): boolean => {
     return userCredentials.has(integrationId);
+  };
+
+  const getUserConnectionStatus = (integrationId: string) => {
+    const cred = userCredentials.get(integrationId);
+    if (!cred) return null;
+    
+    return {
+      status: cred.connection_status,
+      error: cred.validation_error,
+      grantedScopes: cred.granted_scopes,
+      lastValidated: cred.last_validated_at,
+    };
   };
 
   const getStatusBadge = (status: string) => {
@@ -498,10 +527,29 @@ export default function Integrations() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Ваш статус</span>
                     {isUserConnected(integration.id) ? (
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                        <CheckCircle2 className="mr-1 h-3 w-3" />
-                        Підключено
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        {getUserConnectionStatus(integration.id)?.status === 'validated' ? (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            <CheckCircle2 className="mr-1 h-3 w-3" />
+                            Підключено і працює
+                          </Badge>
+                        ) : getUserConnectionStatus(integration.id)?.status === 'error' ? (
+                          <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                            <XCircle className="mr-1 h-3 w-3" />
+                            Підключено з помилкою
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            <RefreshCw className="mr-1 h-3 w-3" />
+                            Перевірка...
+                          </Badge>
+                        )}
+                        {getUserConnectionStatus(integration.id)?.error && (
+                          <span className="text-xs text-destructive">
+                            {getUserConnectionStatus(integration.id)?.error}
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <Badge variant="secondary">Не підключено</Badge>
                     )}

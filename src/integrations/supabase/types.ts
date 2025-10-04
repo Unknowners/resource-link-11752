@@ -128,36 +128,48 @@ export type Database = {
       integration_credentials: {
         Row: {
           access_token: string | null
+          connection_status: string | null
           created_at: string
+          granted_scopes: string | null
           id: string
           integration_id: string
+          last_validated_at: string | null
           refresh_token: string | null
           scope: string | null
           token_expires_at: string | null
           updated_at: string
           user_id: string
+          validation_error: string | null
         }
         Insert: {
           access_token?: string | null
+          connection_status?: string | null
           created_at?: string
+          granted_scopes?: string | null
           id?: string
           integration_id: string
+          last_validated_at?: string | null
           refresh_token?: string | null
           scope?: string | null
           token_expires_at?: string | null
           updated_at?: string
           user_id: string
+          validation_error?: string | null
         }
         Update: {
           access_token?: string | null
+          connection_status?: string | null
           created_at?: string
+          granted_scopes?: string | null
           id?: string
           integration_id?: string
+          last_validated_at?: string | null
           refresh_token?: string | null
           scope?: string | null
           token_expires_at?: string | null
           updated_at?: string
           user_id?: string
+          validation_error?: string | null
         }
         Relationships: [
           {
