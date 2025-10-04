@@ -76,6 +76,7 @@ serve(async (req) => {
     // Transform n8n response to expected format
     const formattedResponse = {
       answer: data.output || data.answer || 'Немає відповіді',
+      output: data.output || data.answer || 'Немає відповіді',
       sources: data.sources || [],
       timestamp: new Date().toISOString(),
     };
