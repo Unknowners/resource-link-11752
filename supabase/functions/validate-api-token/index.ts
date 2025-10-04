@@ -96,6 +96,8 @@ Deno.serve(async (req) => {
           if (integration) {
             const siteName = normalizedUrl.replace('https://', '').replace('http://', '');
             let syncedCount = 0;
+            const syncTime = new Date().toISOString();
+            const foundResourceNames = new Set<string>();
             
             // 1. Витягуємо Jira проекти
             try {
@@ -112,6 +114,7 @@ Deno.serve(async (req) => {
                 
                 for (const project of projects) {
                   const resourceName = `${project.key} - ${project.name}`;
+                  foundResourceNames.add(resourceName);
                   
                   const { data: existing } = await supabaseClient
                     .from('resources')
@@ -130,8 +133,20 @@ Deno.serve(async (req) => {
                         type: 'jira_project',
                         integration: integration.name,
                         url: `${normalizedUrl}/browse/${project.key}`,
+                        status: 'active',
+                        last_synced_at: syncTime,
                       });
                     syncedCount++;
+                  } else {
+                    // Оновлюємо статус на active
+                    await supabaseClient
+                      .from('resources')
+                      .update({
+                        status: 'active',
+                        last_synced_at: syncTime,
+                        url: `${normalizedUrl}/browse/${project.key}`,
+                      })
+                      .eq('id', existing.id);
                   }
                 }
               }
@@ -155,6 +170,7 @@ Deno.serve(async (req) => {
                 
                 for (const space of spaces) {
                   const resourceName = `${space.key} - ${space.name}`;
+                  foundResourceNames.add(resourceName);
                   
                   const { data: existing } = await supabaseClient
                     .from('resources')
@@ -173,8 +189,20 @@ Deno.serve(async (req) => {
                         type: 'confluence_space',
                         integration: integration.name,
                         url: `${normalizedUrl}/wiki/spaces/${space.key}`,
+                        status: 'active',
+                        last_synced_at: syncTime,
                       });
                     syncedCount++;
+                  } else {
+                    // Оновлюємо статус на active
+                    await supabaseClient
+                      .from('resources')
+                      .update({
+                        status: 'active',
+                        last_synced_at: syncTime,
+                        url: `${normalizedUrl}/wiki/spaces/${space.key}`,
+                      })
+                      .eq('id', existing.id);
                   }
                 }
               }
@@ -182,12 +210,32 @@ Deno.serve(async (req) => {
               console.error('Failed to fetch Confluence spaces:', err);
             }
 
+            // 3. Помічаємо ресурси які більше не існують як 'removed'
+            const { data: allResources } = await supabaseClient
+              .from('resources')
+              .select('id, name, status')
+              .eq('organization_id', integration.organization_id)
+              .eq('integration', integration.name)
+              .in('type', ['jira_project', 'confluence_space']);
+
+            if (allResources) {
+              for (const resource of allResources) {
+                if (!foundResourceNames.has(resource.name) && resource.status !== 'removed') {
+                  await supabaseClient
+                    .from('resources')
+                    .update({ status: 'removed' })
+                    .eq('id', resource.id);
+                  console.log(`Marked as removed: ${resource.name}`);
+                }
+              }
+            }
+
             console.log(`Synced ${syncedCount} new resources from ${siteName}`);
             
             // Оновлюємо last_sync_at
             await supabaseClient
               .from('integrations')
-              .update({ last_sync_at: new Date().toISOString() })
+              .update({ last_sync_at: syncTime })
               .eq('id', integration_id);
           }
         }

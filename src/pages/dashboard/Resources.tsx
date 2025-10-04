@@ -18,6 +18,8 @@ interface Resource {
   integration: string;
   url: string | null;
   groups: string[];
+  status?: string;
+  last_synced_at?: string;
 }
 
 interface Integration {
@@ -180,13 +182,24 @@ export default function Resources() {
 
   const getTypeBadge = (type: string) => {
     const badges: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
-      jiraProject: { label: "Jira Project", variant: "default" },
-      confluenceSpace: { label: "Confluence", variant: "secondary" },
+      jira_project: { label: "Jira Project", variant: "default" },
+      confluence_space: { label: "Confluence", variant: "secondary" },
+      atlassian_site: { label: "Atlassian Site", variant: "outline" },
       notionSpace: { label: "Notion", variant: "outline" },
       gdriveFolder: { label: "Google Drive", variant: "default" },
     };
     const badge = badges[type] || { label: type, variant: "outline" as const };
     return <Badge variant={badge.variant}>{badge.label}</Badge>;
+  };
+
+  const getStatusBadge = (status?: string) => {
+    if (!status || status === 'active') {
+      return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Активний</Badge>;
+    }
+    if (status === 'removed') {
+      return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Видалено</Badge>;
+    }
+    return <Badge variant="secondary">Невідомий</Badge>;
   };
 
   return (
@@ -339,6 +352,7 @@ export default function Resources() {
                 <TableRow>
                   <TableHead>Назва</TableHead>
                   <TableHead>Тип</TableHead>
+                  <TableHead>Статус</TableHead>
                   <TableHead>Інтеграція</TableHead>
                   <TableHead>Групи</TableHead>
                   <TableHead className="text-right">Дії</TableHead>
@@ -349,6 +363,7 @@ export default function Resources() {
                   <TableRow key={resource.id}>
                     <TableCell className="font-medium">{resource.name}</TableCell>
                     <TableCell>{getTypeBadge(resource.type)}</TableCell>
+                    <TableCell>{getStatusBadge(resource.status)}</TableCell>
                     <TableCell>{resource.integration}</TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">

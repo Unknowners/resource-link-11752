@@ -396,8 +396,10 @@ export type Database = {
           created_at: string | null
           id: string
           integration: string
+          last_synced_at: string | null
           name: string
           organization_id: string
+          status: string
           type: string
           updated_at: string | null
           url: string | null
@@ -406,8 +408,10 @@ export type Database = {
           created_at?: string | null
           id?: string
           integration: string
+          last_synced_at?: string | null
           name: string
           organization_id: string
+          status?: string
           type: string
           updated_at?: string | null
           url?: string | null
@@ -416,8 +420,10 @@ export type Database = {
           created_at?: string | null
           id?: string
           integration?: string
+          last_synced_at?: string | null
           name?: string
           organization_id?: string
+          status?: string
           type?: string
           updated_at?: string | null
           url?: string | null
