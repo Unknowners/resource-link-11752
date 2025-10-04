@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Group {
   id: string;
@@ -58,7 +59,7 @@ export default function GroupDetail() {
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [isResourceDialogOpen, setIsResourceDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState("");
-  const [selectedResource, setSelectedResource] = useState("");
+  const [selectedResources, setSelectedResources] = useState<string[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
   const [resourceSearch, setResourceSearch] = useState("");
   const [resourceTypeFilter, setResourceTypeFilter] = useState("");
@@ -283,21 +284,23 @@ export default function GroupDetail() {
   };
 
   const handleAddResource = async () => {
-    if (!selectedResource || !id) return;
+    if (selectedResources.length === 0 || !id) return;
 
     try {
+      const permissions = selectedResources.map(resourceId => ({
+        group_id: id,
+        resource_id: resourceId
+      }));
+
       const { error } = await supabase
         .from('resource_permissions')
-        .insert({
-          group_id: id,
-          resource_id: selectedResource,
-        });
+        .insert(permissions);
 
       if (error) throw error;
 
-      toast.success('Ресурс додано до групи');
+      toast.success(`Додано ${selectedResources.length} ресурсів до групи`);
       setIsResourceDialogOpen(false);
-      setSelectedResource("");
+      setSelectedResources([]);
       setResourceSearch("");
       setResourceTypeFilter("");
       setResourceIntegrationFilter("");
@@ -604,12 +607,27 @@ export default function GroupDetail() {
                         <ScrollArea className="h-80 border rounded-md mt-2">
                           <div className="p-3 space-y-2">
                             {filteredResources.map((resource) => (
-                              <Button
+                              <div
                                 key={resource.id}
-                                variant={selectedResource === resource.id ? "secondary" : "ghost"}
-                                className="w-full justify-start text-left h-auto py-3 px-4"
-                                onClick={() => setSelectedResource(resource.id)}
+                                className="flex items-start gap-3 p-3 rounded-md hover:bg-accent cursor-pointer"
+                                onClick={() => {
+                                  setSelectedResources(prev => 
+                                    prev.includes(resource.id)
+                                      ? prev.filter(id => id !== resource.id)
+                                      : [...prev, resource.id]
+                                  );
+                                }}
                               >
+                                <Checkbox
+                                  checked={selectedResources.includes(resource.id)}
+                                  onCheckedChange={() => {
+                                    setSelectedResources(prev => 
+                                      prev.includes(resource.id)
+                                        ? prev.filter(id => id !== resource.id)
+                                        : [...prev, resource.id]
+                                    );
+                                  }}
+                                />
                                 <div className="flex-1 overflow-hidden space-y-2">
                                   <div className="flex items-center gap-2">
                                     <p className="text-sm font-medium truncate flex-1">
@@ -621,7 +639,7 @@ export default function GroupDetail() {
                                     📦 {resource.integration}
                                   </p>
                                 </div>
-                              </Button>
+                              </div>
                             ))}
                             {filteredResources.length === 0 && (
                               <div className="text-center py-12 text-muted-foreground text-sm">
@@ -631,7 +649,7 @@ export default function GroupDetail() {
                           </div>
                         </ScrollArea>
                       </div>
-                      <Button onClick={handleAddResource} disabled={!selectedResource} className="w-full">
+                      <Button onClick={handleAddResource} disabled={selectedResources.length === 0} className="w-full">
                         Додати ресурс
                       </Button>
                     </div>
