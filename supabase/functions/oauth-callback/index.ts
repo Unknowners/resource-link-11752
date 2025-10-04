@@ -144,6 +144,25 @@ Deno.serve(async (req) => {
           validationError = 'Failed to access GitHub user info';
           validationStatus = 'error';
         }
+      }
+      // Для Notion - перевіряємо доступ до користувача та workspaces
+      else if (integration.type === 'notion') {
+        const testResponse = await fetch('https://api.notion.com/v1/users/me', {
+          headers: {
+            'Authorization': `Bearer ${tokens.access_token}`,
+            'Notion-Version': '2022-06-28',
+          },
+        });
+
+        if (testResponse.ok) {
+          validationStatus = 'validated';
+          console.log('Notion user access validated');
+        } else {
+          const errorText = await testResponse.text();
+          console.error('Notion validation failed:', errorText);
+          validationError = `Failed to access Notion user info: ${errorText}`;
+          validationStatus = 'error';
+        }
       } else {
         // Для інших провайдерів - вважаємо validated якщо токен отримано
         validationStatus = 'validated';

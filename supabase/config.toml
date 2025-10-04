@@ -20,3 +20,6 @@ verify_jwt = true
 
 [functions.delete-user]
 verify_jwt = true
+
+[functions.sync-notion-resources]
+verify_jwt = true

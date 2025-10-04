@@ -85,6 +85,23 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
 5. Basic Information → App Credentials
 6. Скопіюйте Client ID та Client Secret`
   },
+  {
+    name: "Notion",
+    type: "notion",
+    auth_type: "oauth",
+    oauth_authorize_url: "https://api.notion.com/v1/oauth/authorize",
+    oauth_token_url: "https://api.notion.com/v1/oauth/token",
+    oauth_scopes: "",
+    instructions: `1. Створіть Notion Integration на https://www.notion.so/my-integrations
+2. New integration → Дайте назву → Submit
+3. Integration type → Public
+4. Redirect URIs → Add URI: https://rbmepcfznvcskxayuisp.supabase.co/functions/v1/oauth-callback
+5. Capabilities → Оберіть потрібні (Read content, Read user тощо)
+6. Distribution → Make public
+7. Скопіюйте OAuth client ID та OAuth client secret
+
+Після підключення ви зможете працювати з усіма Notion workspaces, до яких надасте доступ.`
+  },
 ];
 
 interface OAuthPresetsProps {
