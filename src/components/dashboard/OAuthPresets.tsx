@@ -88,10 +88,7 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
   {
     name: "Notion",
     type: "notion",
-    auth_type: "oauth",
-    oauth_authorize_url: "https://api.notion.com/v1/oauth/authorize",
-    oauth_token_url: "https://api.notion.com/v1/oauth/token",
-    oauth_scopes: "",
+    auth_type: "api_token",
     instructions: `1. Створіть Notion Integration на https://www.notion.so/my-integrations
 2. New integration → Дайте назву → Submit
 3. Integration type → Internal
