@@ -30,107 +30,124 @@ Deno.serve(async (req) => {
 
     console.log('Validating API token for integration:', integration_id);
 
-    // Отримуємо інтеграцію
-    const { data: integration, error: integrationError } = await supabaseClient
-      .from('integrations')
-      .select('*')
-      .eq('id', integration_id)
-      .single();
+    // Отримуємо site URL
+    let atlassianSiteUrl = site_url;
+    
+    // Якщо є integration_id, отримуємо дані з БД
+    if (integration_id) {
+      const { data: integration, error: integrationError } = await supabaseClient
+        .from('integrations')
+        .select('*')
+        .eq('id', integration_id)
+        .single();
 
-    if (integrationError || !integration) {
-      throw new Error('Integration not found');
+      if (integrationError || !integration) {
+        throw new Error('Integration not found');
+      }
+
+      // Якщо site_url не передано, беремо з інтеграції
+      if (!atlassianSiteUrl) {
+        atlassianSiteUrl = integration.oauth_authorize_url;
+      }
     }
-
-    // Отримуємо site URL (з параметрів або з інтеграції)
-    const atlassianSiteUrl = site_url || integration.oauth_authorize_url;
     
     if (!atlassianSiteUrl) {
-      throw new Error('Atlassian site URL is required. Please provide your Atlassian domain (e.g., yourcompany.atlassian.net)');
+      throw new Error('Atlassian site URL is required');
     }
 
     let validationStatus = 'pending';
     let validationError = null;
 
-    // Валідуємо для Atlassian
-    if (integration.type === 'atlassian') {
-      // Створюємо Basic Auth header
-      const authString = btoa(`${email}:${api_token}`);
-      
-      try {
-        // Нормалізуємо URL (додаємо https:// якщо немає)
-        let normalizedUrl = atlassianSiteUrl.trim();
-        if (!normalizedUrl.startsWith('http')) {
-          normalizedUrl = `https://${normalizedUrl}`;
-        }
-        
-        // Тестуємо доступ до Jira API
-        const jiraTestUrl = `${normalizedUrl}/rest/api/3/myself`;
-        console.log('Testing Jira API access:', jiraTestUrl);
-        
-        const testResponse = await fetch(jiraTestUrl, {
-          headers: {
-            'Authorization': `Basic ${authString}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (testResponse.ok) {
-          const userData = await testResponse.json();
-          console.log('Jira authentication successful for user:', userData.emailAddress);
-          validationStatus = 'validated';
-          
-          // Створюємо ресурс для цього Jira сайту
-          const siteName = normalizedUrl.replace('https://', '').replace('http://', '');
-          
-          const { error: resourceError } = await supabaseClient
-            .from('resources')
-            .upsert({
-              organization_id: integration.organization_id,
-              name: `Jira: ${siteName}`,
-              type: 'atlassian_site',
-              integration: integration.name,
-              url: normalizedUrl,
-            }, {
-              onConflict: 'organization_id,name,integration',
-            });
-          
-          if (resourceError) {
-            console.error('Failed to sync Jira resource:', resourceError);
-          } else {
-            console.log('Synced Jira site to database:', siteName);
-          }
-        } else {
-          const errorText = await testResponse.text();
-          console.error('Validation failed:', testResponse.status, errorText);
-          validationStatus = 'error';
-          validationError = `Authentication failed: ${testResponse.status}. Check email and token.`;
-        }
-      } catch (validationErr) {
-        console.error('Validation error:', validationErr);
-        validationStatus = 'error';
-        validationError = validationErr instanceof Error ? validationErr.message : 'Unknown error';
+    // Валідуємо Atlassian (завжди, бо це єдиний supported тип для API token)
+    // Створюємо Basic Auth header
+    const authString = btoa(`${email}:${api_token}`);
+    
+    try {
+      // Нормалізуємо URL (додаємо https:// якщо немає)
+      let normalizedUrl = atlassianSiteUrl.trim();
+      if (!normalizedUrl.startsWith('http')) {
+        normalizedUrl = `https://${normalizedUrl}`;
       }
-    }
-
-    // Зберігаємо credentials
-    const { error: credentialsError } = await supabaseClient
-      .from('integration_credentials')
-      .upsert({
-        integration_id: integration_id,
-        user_id: user.id,
-        access_token: api_token, // зберігаємо API token як access_token
-        connection_status: validationStatus,
-        validation_error: validationError,
-        last_validated_at: new Date().toISOString(),
-        scope: 'api_token_auth', // маркер що це API token
+      
+      // Тестуємо доступ до Jira API
+      const jiraTestUrl = `${normalizedUrl}/rest/api/3/myself`;
+      console.log('Testing Jira API access:', jiraTestUrl);
+      
+      const testResponse = await fetch(jiraTestUrl, {
+        headers: {
+          'Authorization': `Basic ${authString}`,
+          'Accept': 'application/json',
+        },
       });
 
-    if (credentialsError) {
-      console.error('Failed to save credentials:', credentialsError);
-      throw credentialsError;
+      if (testResponse.ok) {
+        const userData = await testResponse.json();
+        console.log('Jira authentication successful for user:', userData.emailAddress);
+        validationStatus = 'validated';
+        
+        // Створюємо ресурс для цього Jira сайту тільки якщо є integration_id
+        if (integration_id) {
+          const { data: integration } = await supabaseClient
+            .from('integrations')
+            .select('organization_id, name')
+            .eq('id', integration_id)
+            .single();
+
+          if (integration) {
+            const siteName = normalizedUrl.replace('https://', '').replace('http://', '');
+            
+            const { error: resourceError } = await supabaseClient
+              .from('resources')
+              .upsert({
+                organization_id: integration.organization_id,
+                name: `Jira: ${siteName}`,
+                type: 'atlassian_site',
+                integration: integration.name,
+                url: normalizedUrl,
+              }, {
+                onConflict: 'organization_id,name,integration',
+              });
+            
+            if (resourceError) {
+              console.error('Failed to sync Jira resource:', resourceError);
+            } else {
+              console.log('Synced Jira site to database:', siteName);
+            }
+          }
+        }
+      } else {
+        const errorText = await testResponse.text();
+        console.error('Validation failed:', testResponse.status, errorText);
+        validationStatus = 'error';
+        validationError = `Authentication failed: ${testResponse.status}. Check email and token.`;
+      }
+    } catch (validationErr) {
+      console.error('Validation error:', validationErr);
+      validationStatus = 'error';
+      validationError = validationErr instanceof Error ? validationErr.message : 'Unknown error';
     }
 
-    console.log('Credentials saved with status:', validationStatus);
+    // Зберігаємо credentials тільки якщо є integration_id
+    if (integration_id) {
+      const { error: credentialsError } = await supabaseClient
+        .from('integration_credentials')
+        .upsert({
+          integration_id: integration_id,
+          user_id: user.id,
+          access_token: api_token,
+          connection_status: validationStatus,
+          validation_error: validationError,
+          last_validated_at: new Date().toISOString(),
+          scope: 'api_token_auth',
+        });
+
+      if (credentialsError) {
+        console.error('Failed to save credentials:', credentialsError);
+        throw credentialsError;
+      }
+
+      console.log('Credentials saved with status:', validationStatus);
+    }
 
     return new Response(
       JSON.stringify({ 

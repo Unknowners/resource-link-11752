@@ -158,73 +158,137 @@ export default function Integrations() {
   const handleCreateIntegration = async () => {
     if (!organizationId) return;
     
-    try {
-      const insertData: any = {
-        organization_id: organizationId,
-        name: formData.name,
-        type: formData.type,
-        status: 'connected',
-        auth_type: selectedPreset?.auth_type || 'oauth',
-      };
+    // Валідація обов'язкових полів
+    if (!formData.name || !formData.type) {
+      toast.error("Заповніть назву та тип інтеграції");
+      return;
+    }
 
-      // Для OAuth додаємо OAuth поля
-      if (selectedPreset?.auth_type === 'oauth') {
-        insertData.oauth_client_id = formData.oauth_client_id || null;
-        insertData.oauth_client_secret = formData.oauth_client_secret || null;
-        insertData.oauth_authorize_url = formData.oauth_authorize_url || null;
-        insertData.oauth_token_url = formData.oauth_token_url || null;
-        insertData.oauth_scopes = formData.oauth_scopes || null;
-      } 
-      // Для API Token додаємо email та token
-      else if (selectedPreset?.auth_type === 'api_token') {
-        insertData.api_email = formData.oauth_client_id; // reuse field for email
-        insertData.api_token = formData.oauth_client_secret; // reuse field for token
+    if (selectedPreset?.auth_type === 'api_token') {
+      if (!formData.oauth_authorize_url) {
+        toast.error("Вкажіть Atlassian Site URL");
+        return;
+      }
+      if (!formData.oauth_client_id) {
+        toast.error("Вкажіть email акаунту");
+        return;
+      }
+      if (!formData.oauth_client_secret) {
+        toast.error("Вкажіть API Token");
+        return;
       }
 
-      const { data: newIntegration, error } = await supabase
-        .from('integrations')
-        .insert(insertData)
-        .select()
-        .single();
+      // Для API Token - спочатку валідуємо, потім створюємо
+      try {
+        const loadingToast = toast.loading('Перевірка підключення...');
+        
+        const { data, error } = await supabase.functions.invoke('validate-api-token', {
+          body: {
+            integration_id: null, // тимчасово null, бо ще не створена
+            email: formData.oauth_client_id,
+            api_token: formData.oauth_client_secret,
+            site_url: formData.oauth_authorize_url,
+          },
+        });
 
-      if (error) throw error;
+        toast.dismiss(loadingToast);
 
-      toast.success("Інтеграцію створено");
-      
-      // Якщо це API Token - одразу валідуємо
-      if (selectedPreset?.auth_type === 'api_token' && newIntegration) {
-        await handleValidateApiToken(newIntegration.id, formData.oauth_client_id, formData.oauth_client_secret);
+        if (error || !data?.success) {
+          toast.error(data?.message || data?.error || 'Помилка перевірки підключення');
+          return; // НЕ створюємо інтеграцію якщо валідація провалилась
+        }
+
+        // Тільки якщо валідація успішна - створюємо інтеграцію
+        const insertData: any = {
+          organization_id: organizationId,
+          name: formData.name,
+          type: formData.type,
+          status: 'connected',
+          auth_type: 'api_token',
+          api_email: formData.oauth_client_id,
+          api_token: formData.oauth_client_secret,
+          oauth_authorize_url: formData.oauth_authorize_url, // зберігаємо site URL
+        };
+
+        const { data: newIntegration, error: insertError } = await supabase
+          .from('integrations')
+          .insert(insertData)
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        // Ще раз валідуємо вже з правильним integration_id щоб записати credentials
+        await handleValidateApiToken(
+          newIntegration.id, 
+          formData.oauth_client_id, 
+          formData.oauth_client_secret,
+          formData.oauth_authorize_url
+        );
+
+        toast.success("Інтеграцію створено і підключено");
+        setIsDialogOpen(false);
+        setFormData({ 
+          name: "", 
+          type: "",
+          oauth_client_id: "",
+          oauth_client_secret: "",
+          oauth_authorize_url: "",
+          oauth_token_url: "",
+          oauth_scopes: "",
+        });
+        setSelectedPreset(null);
+        loadIntegrations();
+      } catch (error) {
+        console.error('Error creating integration:', error);
+        toast.error("Помилка створення інтеграції");
+      }
+    } else {
+      // Для OAuth - створюємо як раніше
+      if (!formData.oauth_client_id || !formData.oauth_client_secret) {
+        toast.error("Заповніть Client ID та Client Secret");
+        return;
       }
 
-      setIsDialogOpen(false);
-      setFormData({ 
-        name: "", 
-        type: "",
-        oauth_client_id: "",
-        oauth_client_secret: "",
-        oauth_authorize_url: "",
-        oauth_token_url: "",
-        oauth_scopes: "",
-      });
-      setSelectedPreset(null);
-      loadIntegrations();
+      try {
+        const insertData: any = {
+          organization_id: organizationId,
+          name: formData.name,
+          type: formData.type,
+          status: 'connected',
+          auth_type: 'oauth',
+          oauth_client_id: formData.oauth_client_id,
+          oauth_client_secret: formData.oauth_client_secret,
+          oauth_authorize_url: formData.oauth_authorize_url || null,
+          oauth_token_url: formData.oauth_token_url || null,
+          oauth_scopes: formData.oauth_scopes || null,
+        };
 
-      toast.success("Інтеграцію створено");
-      setIsDialogOpen(false);
-      setFormData({ 
-        name: "", 
-        type: "",
-        oauth_client_id: "",
-        oauth_client_secret: "",
-        oauth_authorize_url: "",
-        oauth_token_url: "",
-        oauth_scopes: "",
-      });
-      setSelectedPreset(null);
-      loadIntegrations();
-    } catch (error) {
-      console.error('Error creating integration:', error);
-      toast.error("Помилка створення інтеграції");
+        const { error } = await supabase
+          .from('integrations')
+          .insert(insertData)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        toast.success("Інтеграцію створено");
+        setIsDialogOpen(false);
+        setFormData({ 
+          name: "", 
+          type: "",
+          oauth_client_id: "",
+          oauth_client_secret: "",
+          oauth_authorize_url: "",
+          oauth_token_url: "",
+          oauth_scopes: "",
+        });
+        setSelectedPreset(null);
+        loadIntegrations();
+      } catch (error) {
+        console.error('Error creating integration:', error);
+        toast.error("Помилка створення інтеграції");
+      }
     }
   };
 
