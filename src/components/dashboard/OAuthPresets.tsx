@@ -88,15 +88,19 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
   {
     name: "Notion",
     type: "notion",
-    auth_type: "api_token",
+    auth_type: "oauth",
+    oauth_authorize_url: "https://api.notion.com/v1/oauth/authorize",
+    oauth_token_url: "https://api.notion.com/v1/oauth/token",
+    oauth_scopes: "",
     instructions: `1. Створіть Notion Integration на https://www.notion.so/my-integrations
 2. New integration → Дайте назву → Submit
-3. Integration type → Internal
-4. Capabilities → Оберіть потрібні (Read content, Read user тощо)
-5. Secrets → Скопіюйте Internal Integration Secret
+3. Integration type → Public
+4. Redirect URIs → Add URI: ${getRedirectUrl()}
+5. Capabilities → Оберіть потрібні (Read content, Read user тощо)
+6. Distribution → Make public
+7. Скопіюйте OAuth client ID та OAuth client secret
 
-Для Internal інтеграції не потрібні OAuth налаштування - використовуйте Integration Secret як API Token.
-Після підключення ви зможете працювати з Notion workspace де створена інтеграція.`
+Після підключення ви зможете працювати з усіма Notion workspaces, до яких надасте доступ при авторизації.`
   },
 ];
 
