@@ -542,46 +542,64 @@ export default function Integrations() {
 
                 {selectedPreset.auth_type === 'api_token' ? (
                   <>
-                    <div>
-                      <Label htmlFor="oauth_authorize_url">Atlassian Site URL *</Label>
-                      <Input
-                        id="oauth_authorize_url"
-                        value={formData.oauth_authorize_url}
-                        onChange={(e) => {
-                          // Автоматично очищаємо від https://, http://, та слешів
-                          let cleanUrl = e.target.value.trim();
-                          cleanUrl = cleanUrl.replace(/^https?:\/\//, ''); // видаляємо https:// або http://
-                          cleanUrl = cleanUrl.replace(/\/+$/, ''); // видаляємо слеші в кінці
-                          setFormData({ ...formData, oauth_authorize_url: cleanUrl });
-                        }}
-                        placeholder="yourcompany.atlassian.net"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Введіть ваш Atlassian domain (автоматично очищається від https://)
-                      </p>
-                    </div>
+                    {selectedPreset.type === 'notion' ? (
+                      <div>
+                        <Label htmlFor="oauth_client_secret">Integration Secret *</Label>
+                        <Input
+                          id="oauth_client_secret"
+                          type="password"
+                          value={formData.oauth_client_secret}
+                          onChange={(e) => setFormData({ ...formData, oauth_client_secret: e.target.value })}
+                          placeholder="secret_..."
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Internal Integration Secret з Notion
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <Label htmlFor="oauth_authorize_url">Atlassian Site URL *</Label>
+                          <Input
+                            id="oauth_authorize_url"
+                            value={formData.oauth_authorize_url}
+                            onChange={(e) => {
+                              // Автоматично очищаємо від https://, http://, та слешів
+                              let cleanUrl = e.target.value.trim();
+                              cleanUrl = cleanUrl.replace(/^https?:\/\//, ''); // видаляємо https:// або http://
+                              cleanUrl = cleanUrl.replace(/\/+$/, ''); // видаляємо слеші в кінці
+                              setFormData({ ...formData, oauth_authorize_url: cleanUrl });
+                            }}
+                            placeholder="yourcompany.atlassian.net"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Введіть ваш Atlassian domain (автоматично очищається від https://)
+                          </p>
+                        </div>
 
-                    <div>
-                      <Label htmlFor="oauth_client_id">Email акаунту *</Label>
-                      <Input
-                        id="oauth_client_id"
-                        type="email"
-                        value={formData.oauth_client_id}
-                        onChange={(e) => setFormData({ ...formData, oauth_client_id: e.target.value })}
-                        placeholder="your-email@company.com"
-                      />
-                    </div>
+                        <div>
+                          <Label htmlFor="oauth_client_id">Email акаунту *</Label>
+                          <Input
+                            id="oauth_client_id"
+                            type="email"
+                            value={formData.oauth_client_id}
+                            onChange={(e) => setFormData({ ...formData, oauth_client_id: e.target.value })}
+                            placeholder="your-email@company.com"
+                          />
+                        </div>
 
-                    <div>
-                      <Label htmlFor="oauth_client_secret">API Token *</Label>
-                      <Input
-                        id="oauth_client_secret"
-                        type="password"
-                        value={formData.oauth_client_secret}
-                        onChange={(e) => setFormData({ ...formData, oauth_client_secret: e.target.value })}
-                        placeholder="Вставте токен з Atlassian"
-                      />
-                    </div>
+                        <div>
+                          <Label htmlFor="oauth_client_secret">API Token *</Label>
+                          <Input
+                            id="oauth_client_secret"
+                            type="password"
+                            value={formData.oauth_client_secret}
+                            onChange={(e) => setFormData({ ...formData, oauth_client_secret: e.target.value })}
+                            placeholder="Вставте токен з Atlassian"
+                          />
+                        </div>
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
