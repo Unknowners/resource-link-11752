@@ -34,7 +34,14 @@ serve(async (req) => {
     const data = await response.json();
     console.log('N8N webhook response:', data);
 
-    return new Response(JSON.stringify(data), {
+    // Transform n8n response to expected format
+    const formattedResponse = {
+      answer: data.output || data.answer || 'Немає відповіді',
+      sources: data.sources || [],
+      timestamp: new Date().toISOString(),
+    };
+
+    return new Response(JSON.stringify(formattedResponse), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
