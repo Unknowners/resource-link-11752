@@ -78,7 +78,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     });
 
-    // Create user with admin client
+    // Try to create user with admin client
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -90,20 +90,68 @@ const handler = async (req: Request): Promise<Response> => {
       }
     });
 
-    if (createError) {
-      console.error("Error creating user:", createError);
+    let userId: string;
+    let isExistingUser = false;
+
+    // If user already exists, get their ID and add them to organization
+    if (createError && createError.message?.includes("already been registered")) {
+      console.log("User already exists, finding user by email:", email);
       
-      // Handle specific error cases
-      const status = createError.status || 500;
-      let message = createError.message;
+      // Get existing user by email
+      const { data: existingUsers, error: listError } = await adminClient.auth.admin.listUsers();
       
-      if (createError.message?.includes("already been registered")) {
-        message = "Користувач з таким email вже існує";
+      if (listError) {
+        throw new Error(`Failed to find existing user: ${listError.message}`);
       }
+
+      const existingUser = existingUsers.users.find(u => u.email === email);
+      
+      if (!existingUser) {
+        throw new Error("Користувач існує, але не знайдено в системі");
+      }
+
+      userId = existingUser.id;
+      isExistingUser = true;
+      console.log(`Found existing user: ${userId}`);
+
+      // Update user profile with new data
+      const { error: updateError } = await adminClient.auth.admin.updateUserById(
+        userId,
+        {
+          user_metadata: {
+            first_name: firstName,
+            last_name: lastName,
+            company: company || memberData.organization_id,
+          }
+        }
+      );
+
+      if (updateError) {
+        console.error("Error updating user profile:", updateError);
+      }
+
+      // If password is provided, update it
+      if (password) {
+        const { error: passwordError } = await adminClient.auth.admin.updateUserById(
+          userId,
+          { password }
+        );
+        
+        if (passwordError) {
+          console.error("Error updating password:", passwordError);
+        } else {
+          console.log("Password updated for existing user");
+        }
+      }
+
+    } else if (createError) {
+      // Other creation errors
+      console.error("Error creating user:", createError);
+      const status = createError.status || 500;
       
       return new Response(
         JSON.stringify({
-          error: message,
+          error: createError.message,
           success: false,
         }),
         {
@@ -111,35 +159,68 @@ const handler = async (req: Request): Promise<Response> => {
           headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );
+    } else {
+      // User successfully created
+      if (!newUser.user) {
+        throw new Error("User creation failed");
+      }
+      userId = newUser.user.id;
+      console.log(`New user created: ${userId}`);
     }
 
-    if (!newUser.user) {
-      throw new Error("User creation failed");
-    }
+    // Check if user is already in the organization
+    const { data: existingMember } = await requestorClient
+      .from('organization_members')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('organization_id', memberData.organization_id)
+      .maybeSingle();
 
-    console.log(`User created: ${newUser.user.id}`);
+    if (existingMember) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: isExistingUser 
+            ? "Користувача оновлено та підтверджено членство в організації"
+            : "Користувач вже є членом організації",
+          userId: userId,
+          alreadyMember: true,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
 
     // Add user to organization
     const { error: orgError } = await requestorClient
       .from('organization_members')
       .insert({
-        user_id: newUser.user.id,
+        user_id: userId,
         organization_id: memberData.organization_id,
         role: role || 'member',
       });
 
     if (orgError) {
       console.error("Error adding to organization:", orgError);
-      // Try to delete the user if org membership fails
-      await adminClient.auth.admin.deleteUser(newUser.user.id);
+      
+      // Only try to delete if it's a newly created user
+      if (!isExistingUser) {
+        await adminClient.auth.admin.deleteUser(userId);
+      }
+      
       throw new Error(`Failed to add user to organization: ${orgError.message}`);
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Користувача створено успішно",
-        userId: newUser.user.id,
+        message: isExistingUser 
+          ? "Існуючого користувача додано до організації"
+          : "Нового користувача створено успішно",
+        userId: userId,
+        isExistingUser,
       }),
       {
         status: 200,
