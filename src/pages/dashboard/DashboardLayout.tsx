@@ -28,14 +28,48 @@ export default function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState<string>("");
+  const [fullName, setFullName] = useState<string>("");
+  const [role, setRole] = useState<string>("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    const fetchUserData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       if (user) {
         setUserEmail(user.email || "");
+        
+        // Fetch profile data
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          const name = [profile.first_name, profile.last_name].filter(Boolean).join(' ');
+          setFullName(name || user.email?.split('@')[0] || "");
+        }
+        
+        // Fetch organization role
+        const { data: membership } = await supabase
+          .from('organization_members')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (membership?.role) {
+          const roleMap: Record<string, string> = {
+            'owner': 'Власник',
+            'admin': 'Адміністратор',
+            'member': 'Учасник',
+          };
+          setRole(roleMap[membership.role] || membership.role);
+        }
       }
-    });
+    };
+    
+    fetchUserData();
   }, []);
 
   const isActive = (path: string) => {
@@ -109,7 +143,8 @@ export default function DashboardLayout() {
                   onClick={() => setMobileMenuOpen(false)}
                   className="block mb-3 px-4 py-3 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors"
                 >
-                  <p className="text-sm font-semibold truncate">Мій профіль</p>
+                  <p className="text-sm font-semibold truncate">{fullName || userEmail}</p>
+                  {role && <p className="text-xs text-primary font-medium">{role}</p>}
                   <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
                 </Link>
                 <Button 
@@ -166,7 +201,8 @@ export default function DashboardLayout() {
 
         <div className="p-3 lg:p-4 border-t">
           <Link to="/app/profile" className="block mb-3 px-3 lg:px-4 py-2.5 lg:py-3 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors">
-            <p className="text-sm font-semibold truncate">Мій профіль</p>
+            <p className="text-sm font-semibold truncate">{fullName || userEmail}</p>
+            {role && <p className="text-xs text-primary font-medium">{role}</p>}
             <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
           </Link>
           <Button 
