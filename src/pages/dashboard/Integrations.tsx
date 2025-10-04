@@ -457,13 +457,19 @@ export default function Integrations() {
     sessionStorage.setItem('oauth_state', state);
     sessionStorage.setItem('oauth_integration_id', integration.id);
 
-    // Формуємо URL для OAuth авторизації
+    // Формуємо URL для OAuth авторізації
     const redirectUri = 'https://documinds.online/app/integrations';
     const authUrl = new URL(integration.oauth_authorize_url);
     authUrl.searchParams.append('client_id', integration.oauth_client_id);
     authUrl.searchParams.append('redirect_uri', redirectUri);
     authUrl.searchParams.append('response_type', 'code');
     authUrl.searchParams.append('state', state);
+    
+    // Для Notion додаємо обов'язковий параметр owner=user
+    if (integration.type === 'notion') {
+      authUrl.searchParams.append('owner', 'user');
+    }
+    
     if (integration.oauth_scopes) {
       authUrl.searchParams.append('scope', integration.oauth_scopes);
     }
