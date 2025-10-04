@@ -27,6 +27,7 @@ const handler = async (req: Request): Promise<Response> => {
     
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
+      console.error("No authorization header");
       throw new Error("No authorization header");
     }
 
@@ -35,9 +36,17 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      throw new Error("Unauthorized");
+    if (authError) {
+      console.error("Auth error:", authError);
+      throw new Error(`Authentication failed: ${authError.message}`);
     }
+    
+    if (!user) {
+      console.error("No user found");
+      throw new Error("User not authenticated");
+    }
+
+    console.log(`Authenticated user: ${user.id}`);
 
     const { email, organizationName, inviterName }: InvitationRequest = await req.json();
 
@@ -48,22 +57,30 @@ const handler = async (req: Request): Promise<Response> => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
-    // Get organization ID
-    const { data: profile } = await supabase
-      .from('profiles')
+    // Get organization ID from the inviter's organization membership
+    const { data: memberData, error: memberError } = await supabase
+      .from('organization_members')
       .select('organization_id')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .single();
 
-    if (!profile?.organization_id) {
+    if (memberError) {
+      console.error("Error fetching organization:", memberError);
+      throw new Error(`Failed to fetch organization: ${memberError.message}`);
+    }
+
+    if (!memberData?.organization_id) {
+      console.error("No organization found for user");
       throw new Error("Organization not found");
     }
+
+    console.log(`Creating invitation for organization: ${memberData.organization_id}`);
 
     // Create invitation record
     const { error: inviteError } = await supabase
       .from('invitations')
       .insert({
-        organization_id: profile.organization_id,
+        organization_id: memberData.organization_id,
         email,
         token,
         invited_by: user.id,
@@ -72,7 +89,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (inviteError) {
       console.error("Error creating invitation:", inviteError);
-      throw inviteError;
+      throw new Error(`Failed to create invitation: ${inviteError.message}`);
     }
 
     const inviteLink = `${supabaseUrl.replace('.supabase.co', '')}/signup?invite=${token}`;
