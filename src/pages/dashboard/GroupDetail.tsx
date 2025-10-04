@@ -1,25 +1,306 @@
-import { useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Users, FolderOpen, Plus, Trash2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ArrowLeft, Users, FolderOpen, Plus, Trash2, ExternalLink } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface Group {
+  id: string;
+  name: string;
+  description: string;
+}
+
+interface Member {
+  id: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+interface Resource {
+  id: string;
+  name: string;
+  type: string;
+  integration: string;
+  url: string | null;
+  status?: string;
+}
+
+interface OrganizationMember {
+  user_id: string;
+  profiles: {
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
+  };
+}
 
 export default function GroupDetail() {
   const { id } = useParams();
+  const [group, setGroup] = useState<Group | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [availableMembers, setAvailableMembers] = useState<OrganizationMember[]>([]);
+  const [availableResources, setAvailableResources] = useState<Resource[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  
+  const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
+  const [isResourceDialogOpen, setIsResourceDialogOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState("");
+  const [selectedResource, setSelectedResource] = useState("");
 
-  const members = [
-    { id: "1", name: "Іван Петренко", email: "ivan@demo.com" },
-    { id: "2", name: "Олена Коваль", email: "olena@demo.com" },
-  ];
+  useEffect(() => {
+    loadData();
+  }, [id]);
 
-  const resources = [
-    { id: "1", name: "Project Alpha", type: "Jira", access: "Admin" },
-    { id: "2", name: "Engineering Wiki", type: "Confluence", access: "Read" },
-  ];
+  const loadData = async () => {
+    if (!id) return;
+    
+    try {
+      setLoading(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get organization
+      const { data: orgMember } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!orgMember) return;
+      setOrganizationId(orgMember.organization_id);
+
+      // Load group
+      const { data: groupData } = await supabase
+        .from('groups')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (groupData) setGroup(groupData);
+
+      // Load group members
+      const { data: membersData } = await supabase
+        .from('group_members')
+        .select(`
+          user_id,
+          profiles:user_id (
+            email,
+            first_name,
+            last_name
+          )
+        `)
+        .eq('group_id', id);
+
+      if (membersData) {
+        const formattedMembers = membersData.map((m: any) => ({
+          id: m.user_id,
+          email: m.profiles?.email || '',
+          first_name: m.profiles?.first_name,
+          last_name: m.profiles?.last_name,
+        }));
+        setMembers(formattedMembers);
+      }
+
+      // Load group resources
+      const { data: resourcesData } = await supabase
+        .from('resource_permissions')
+        .select(`
+          resource_id,
+          resources:resource_id (
+            id,
+            name,
+            type,
+            integration,
+            url,
+            status
+          )
+        `)
+        .eq('group_id', id);
+
+      if (resourcesData) {
+        const formattedResources = resourcesData
+          .map((r: any) => r.resources)
+          .filter(Boolean);
+        setResources(formattedResources);
+      }
+
+      // Load available members (org members not in group)
+      const { data: orgMembers } = await supabase
+        .from('organization_members')
+        .select('user_id')
+        .eq('organization_id', orgMember.organization_id);
+
+      if (orgMembers) {
+        const memberIds = new Set(membersData?.map((m: any) => m.user_id) || []);
+        const availableUserIds = orgMembers
+          .filter((m) => !memberIds.has(m.user_id))
+          .map((m) => m.user_id);
+        
+        // Get profiles for available users
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, email, first_name, last_name')
+          .in('id', availableUserIds);
+
+        if (profilesData) {
+          const available = profilesData.map((p) => ({
+            user_id: p.id,
+            profiles: {
+              email: p.email || '',
+              first_name: p.first_name,
+              last_name: p.last_name,
+            },
+          }));
+          setAvailableMembers(available);
+        }
+      }
+
+      // Load available resources (org resources not in group)
+      const { data: allResources } = await supabase
+        .from('resources')
+        .select('*')
+        .eq('organization_id', orgMember.organization_id)
+        .eq('status', 'active');
+
+      if (allResources) {
+        const resourceIds = new Set(resourcesData?.map((r: any) => r.resource_id) || []);
+        const available = allResources.filter((r) => !resourceIds.has(r.id));
+        setAvailableResources(available);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast.error('Помилка завантаження даних');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddMember = async () => {
+    if (!selectedMember || !id) return;
+
+    try {
+      const { error } = await supabase
+        .from('group_members')
+        .insert({
+          group_id: id,
+          user_id: selectedMember,
+        });
+
+      if (error) throw error;
+
+      toast.success('Учасника додано до групи');
+      setIsMemberDialogOpen(false);
+      setSelectedMember("");
+      loadData();
+    } catch (error) {
+      console.error('Error adding member:', error);
+      toast.error('Помилка додавання учасника');
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!id) return;
+
+    try {
+      const { error } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', id)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast.success('Учасника видалено з групи');
+      loadData();
+    } catch (error) {
+      console.error('Error removing member:', error);
+      toast.error('Помилка видалення учасника');
+    }
+  };
+
+  const handleAddResource = async () => {
+    if (!selectedResource || !id) return;
+
+    try {
+      const { error } = await supabase
+        .from('resource_permissions')
+        .insert({
+          group_id: id,
+          resource_id: selectedResource,
+        });
+
+      if (error) throw error;
+
+      toast.success('Ресурс додано до групи');
+      setIsResourceDialogOpen(false);
+      setSelectedResource("");
+      loadData();
+    } catch (error) {
+      console.error('Error adding resource:', error);
+      toast.error('Помилка додавання ресурсу');
+    }
+  };
+
+  const handleRemoveResource = async (resourceId: string) => {
+    if (!id) return;
+
+    try {
+      const { error } = await supabase
+        .from('resource_permissions')
+        .delete()
+        .eq('group_id', id)
+        .eq('resource_id', resourceId);
+
+      if (error) throw error;
+
+      toast.success('Ресурс видалено з групи');
+      loadData();
+    } catch (error) {
+      console.error('Error removing resource:', error);
+      toast.error('Помилка видалення ресурсу');
+    }
+  };
+
+  const getTypeBadge = (type: string) => {
+    const badges: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
+      jira_project: { label: "Jira Project", variant: "default" },
+      confluence_space: { label: "Confluence", variant: "secondary" },
+      atlassian_site: { label: "Atlassian Site", variant: "outline" },
+    };
+    const badge = badges[type] || { label: type, variant: "outline" as const };
+    return <Badge variant={badge.variant}>{badge.label}</Badge>;
+  };
+
+  const getStatusBadge = (status?: string) => {
+    if (!status || status === 'active') {
+      return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Активний</Badge>;
+    }
+    if (status === 'removed') {
+      return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Видалено</Badge>;
+    }
+    return <Badge variant="secondary">Невідомий</Badge>;
+  };
+
+  if (loading) {
+    return <div className="p-8">Завантаження...</div>;
+  }
+
+  if (!group) {
+    return <div className="p-8">Групу не знайдено</div>;
+  }
 
   return (
     <div className="p-8 space-y-6">
@@ -31,12 +312,11 @@ export default function GroupDetail() {
           </Link>
         </Button>
         <div className="flex-1">
-          <h1 className="font-display">Engineering</h1>
+          <h1 className="font-display">{group.name}</h1>
           <p className="text-muted-foreground text-lg mt-1">
-            Development and technical teams
+            {group.description}
           </p>
         </div>
-        <Button variant="outline">Редагувати</Button>
       </div>
 
       {/* Stats */}
@@ -76,13 +356,45 @@ export default function GroupDetail() {
                   <CardTitle className="text-xl">Учасники групи</CardTitle>
                   <CardDescription>Користувачі з доступом до ресурсів цієї групи</CardDescription>
                 </div>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Додати
-                </Button>
+                <Dialog open={isMemberDialogOpen} onOpenChange={setIsMemberDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button disabled={availableMembers.length === 0}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Додати
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Додати учасника</DialogTitle>
+                      <DialogDescription>
+                        Виберіть користувача для додавання до групи
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Користувач</Label>
+                        <Select value={selectedMember} onValueChange={setSelectedMember}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Виберіть користувача" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableMembers.map((member) => (
+                              <SelectItem key={member.user_id} value={member.user_id}>
+                                {member.profiles.first_name} {member.profiles.last_name} ({member.profiles.email})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button onClick={handleAddMember} className="w-full">
+                        Додати учасника
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -97,21 +409,34 @@ export default function GroupDetail() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar>
-                            <AvatarFallback className="bg-primary text-primary-foreground">
-                              {member.name.substring(0, 2).toUpperCase()}
+                            <AvatarFallback>
+                              {member.first_name?.[0]}{member.last_name?.[0]}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="font-medium">{member.name}</span>
+                          <span className="font-medium">
+                            {member.first_name} {member.last_name}
+                          </span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{member.email}</TableCell>
+                      <TableCell>{member.email}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleRemoveMember(member.id)}
+                        >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </TableCell>
                     </TableRow>
                   ))}
+                  {members.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground">
+                        Немає учасників
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -123,22 +448,55 @@ export default function GroupDetail() {
             <CardHeader>
               <div className="flex justify-between items-center">
                 <div>
-                  <CardTitle className="text-xl">Призначені ресурси</CardTitle>
-                  <CardDescription>Проекти та документи з доступом</CardDescription>
+                  <CardTitle className="text-xl">Ресурси групи</CardTitle>
+                  <CardDescription>Ресурси доступні учасникам групи</CardDescription>
                 </div>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Призначити
-                </Button>
+                <Dialog open={isResourceDialogOpen} onOpenChange={setIsResourceDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button disabled={availableResources.length === 0}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Додати
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Додати ресурс</DialogTitle>
+                      <DialogDescription>
+                        Виберіть ресурс для додавання до групи
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Ресурс</Label>
+                        <Select value={selectedResource} onValueChange={setSelectedResource}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Виберіть ресурс" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableResources.map((resource) => (
+                              <SelectItem key={resource.id} value={resource.id}>
+                                {resource.name} ({resource.type})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button onClick={handleAddResource} className="w-full">
+                        Додати ресурс
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Назва</TableHead>
                     <TableHead>Тип</TableHead>
-                    <TableHead>Рівень доступу</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead>Інтеграція</TableHead>
                     <TableHead className="text-right">Дії</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -146,19 +504,36 @@ export default function GroupDetail() {
                   {resources.map((resource) => (
                     <TableRow key={resource.id}>
                       <TableCell className="font-medium">{resource.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{resource.type}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge>{resource.access}</Badge>
-                      </TableCell>
+                      <TableCell>{getTypeBadge(resource.type)}</TableCell>
+                      <TableCell>{getStatusBadge(resource.status)}</TableCell>
+                      <TableCell>{resource.integration}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex gap-2 justify-end">
+                          {resource.url && (
+                            <Button variant="ghost" size="sm" asChild>
+                              <a href={resource.url} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            </Button>
+                          )}
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleRemoveResource(resource.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
+                  {resources.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        Немає ресурсів
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
