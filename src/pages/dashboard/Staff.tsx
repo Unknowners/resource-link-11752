@@ -296,11 +296,15 @@ export default function Staff() {
   };
 
   const getRoleBadge = (role: string) => {
-    return role === "Org Admin" ? (
-      <Badge variant="default">Admin</Badge>
-    ) : (
-      <Badge variant="secondary">Member</Badge>
-    );
+    switch (role) {
+      case "owner":
+        return <Badge variant="default">Owner</Badge>;
+      case "admin":
+        return <Badge variant="default">Admin</Badge>;
+      case "member":
+      default:
+        return <Badge variant="secondary">Member</Badge>;
+    }
   };
 
   const getStatusBadge = (status: string) => {
