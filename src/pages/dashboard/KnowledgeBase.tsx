@@ -164,6 +164,7 @@ export default function KnowledgeBase() {
           question: userMessageContent,
           userId: user.id,
           organizationId: organizationId,
+          conversationId: conversationId,
         }
       });
 

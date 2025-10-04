@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { question, userId, organizationId } = await req.json();
+    const { question, userId, organizationId, conversationId } = await req.json();
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -50,12 +50,25 @@ serve(async (req) => {
 
     console.log('Accessible resources:', resources?.length || 0);
 
+    // Get last 10 messages from conversation
+    const { data: chatHistory } = await supabase
+      .from('chat_messages')
+      .select('role, content, created_at')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    const formattedHistory = (chatHistory || []).reverse(); // Reverse to get chronological order
+    console.log('Chat history messages:', formattedHistory.length);
+
     const params = new URLSearchParams({
       question: String(question ?? ''),
       userId: String(userId ?? ''),
       organizationId: String(organizationId ?? ''),
+      conversationId: String(conversationId ?? ''),
       resourcesCount: String(resources?.length || 0),
       resources: JSON.stringify(resources || []),
+      chatHistory: JSON.stringify(formattedHistory),
     });
 
     const url = `https://documindsonline.app.n8n.cloud/webhook/94277c56-d3f1-4d6f-b143-26afefe0bcca?${params.toString()}`;
