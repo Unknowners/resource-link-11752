@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { integration_id, email, api_token } = await req.json();
+    const { integration_id, email, api_token, site_url } = await req.json();
 
     console.log('Validating API token for integration:', integration_id);
 
@@ -41,6 +41,13 @@ Deno.serve(async (req) => {
       throw new Error('Integration not found');
     }
 
+    // Отримуємо site URL (з параметрів або з інтеграції)
+    const atlassianSiteUrl = site_url || integration.oauth_authorize_url;
+    
+    if (!atlassianSiteUrl) {
+      throw new Error('Atlassian site URL is required. Please provide your Atlassian domain (e.g., yourcompany.atlassian.net)');
+    }
+
     let validationStatus = 'pending';
     let validationError = null;
 
@@ -50,8 +57,17 @@ Deno.serve(async (req) => {
       const authString = btoa(`${email}:${api_token}`);
       
       try {
-        // Тестуємо доступ до Atlassian API
-        const testResponse = await fetch('https://api.atlassian.com/oauth/token/accessible-resources', {
+        // Нормалізуємо URL (додаємо https:// якщо немає)
+        let normalizedUrl = atlassianSiteUrl.trim();
+        if (!normalizedUrl.startsWith('http')) {
+          normalizedUrl = `https://${normalizedUrl}`;
+        }
+        
+        // Тестуємо доступ до Jira API
+        const jiraTestUrl = `${normalizedUrl}/rest/api/3/myself`;
+        console.log('Testing Jira API access:', jiraTestUrl);
+        
+        const testResponse = await fetch(jiraTestUrl, {
           headers: {
             'Authorization': `Basic ${authString}`,
             'Accept': 'application/json',
@@ -59,36 +75,29 @@ Deno.serve(async (req) => {
         });
 
         if (testResponse.ok) {
-          const resources = await testResponse.json();
-          console.log('Atlassian resources accessible:', resources.length);
+          const userData = await testResponse.json();
+          console.log('Jira authentication successful for user:', userData.emailAddress);
+          validationStatus = 'validated';
           
-          if (resources.length === 0) {
-            validationStatus = 'error';
-            validationError = 'No accessible Atlassian resources found';
+          // Створюємо ресурс для цього Jira сайту
+          const siteName = normalizedUrl.replace('https://', '').replace('http://', '');
+          
+          const { error: resourceError } = await supabaseClient
+            .from('resources')
+            .upsert({
+              organization_id: integration.organization_id,
+              name: `Jira: ${siteName}`,
+              type: 'atlassian_site',
+              integration: integration.name,
+              url: normalizedUrl,
+            }, {
+              onConflict: 'organization_id,name,integration',
+            });
+          
+          if (resourceError) {
+            console.error('Failed to sync Jira resource:', resourceError);
           } else {
-            validationStatus = 'validated';
-            console.log('Available sites:', resources.map((r: any) => r.name).join(', '));
-            
-            // Синхронізуємо ресурси в БД
-            for (const resource of resources) {
-              const { error: resourceError } = await supabaseClient
-                .from('resources')
-                .upsert({
-                  organization_id: integration.organization_id,
-                  name: resource.name,
-                  type: 'atlassian_site',
-                  integration: integration.name,
-                  url: resource.url,
-                }, {
-                  onConflict: 'organization_id,name,integration',
-                });
-              
-              if (resourceError) {
-                console.error('Failed to sync resource:', resource.name, resourceError);
-              }
-            }
-            
-            console.log(`Synced ${resources.length} Atlassian sites to database`);
+            console.log('Synced Jira site to database:', siteName);
           }
         } else {
           const errorText = await testResponse.text();

@@ -24,6 +24,7 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
 3. "Create API token" → Вкажіть назву → "Create"
 4. Скопіюйте токен (показується лише раз!)
 5. Вам знадобиться:
+   • Atlassian Site URL (наприклад: yourcompany.atlassian.net)
    • Email вашого Atlassian акаунту
    • API Token який ви щойно створили
 

@@ -284,7 +284,7 @@ export default function Integrations() {
     }
   };
 
-  const handleValidateApiToken = async (integrationId: string, email: string, apiToken: string) => {
+  const handleValidateApiToken = async (integrationId: string, email: string, apiToken: string, siteUrl?: string) => {
     try {
       const loadingToast = toast.loading('Перевірка API Token...');
       
@@ -293,6 +293,7 @@ export default function Integrations() {
           integration_id: integrationId,
           email: email,
           api_token: apiToken,
+          site_url: siteUrl,
         },
       });
 
@@ -445,6 +446,19 @@ export default function Integrations() {
 
                 {selectedPreset.auth_type === 'api_token' ? (
                   <>
+                    <div>
+                      <Label htmlFor="oauth_authorize_url">Atlassian Site URL *</Label>
+                      <Input
+                        id="oauth_authorize_url"
+                        value={formData.oauth_authorize_url}
+                        onChange={(e) => setFormData({ ...formData, oauth_authorize_url: e.target.value })}
+                        placeholder="yourcompany.atlassian.net"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Введіть ваш Atlassian domain без https://
+                      </p>
+                    </div>
+
                     <div>
                       <Label htmlFor="oauth_client_id">Email акаунту *</Label>
                       <Input
@@ -656,10 +670,10 @@ export default function Integrations() {
                           variant="outline" 
                           className="w-full"
                           onClick={async () => {
-                            // Знаходимо email та token з integration
+                            // Знаходимо email, token та site URL з integration
                             const { data: integrationData } = await supabase
                               .from('integrations')
-                              .select('api_email, api_token')
+                              .select('api_email, api_token, oauth_authorize_url')
                               .eq('id', integration.id)
                               .single();
                             
@@ -667,7 +681,8 @@ export default function Integrations() {
                               await handleValidateApiToken(
                                 integration.id, 
                                 integrationData.api_email, 
-                                integrationData.api_token
+                                integrationData.api_token,
+                                integrationData.oauth_authorize_url
                               );
                             } else {
                               toast.error('Credentials не знайдено');
