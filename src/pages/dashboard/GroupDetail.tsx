@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,12 +6,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Users, FolderOpen, Plus, Trash2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Users, FolderOpen, Plus, Trash2, ExternalLink, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Group {
   id: string;
@@ -58,6 +59,28 @@ export default function GroupDetail() {
   const [isResourceDialogOpen, setIsResourceDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState("");
   const [selectedResource, setSelectedResource] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
+  const [resourceSearch, setResourceSearch] = useState("");
+
+  const filteredMembers = useMemo(() => {
+    if (!memberSearch) return availableMembers;
+    const search = memberSearch.toLowerCase();
+    return availableMembers.filter(member => 
+      member.profiles.email.toLowerCase().includes(search) ||
+      member.profiles.first_name?.toLowerCase().includes(search) ||
+      member.profiles.last_name?.toLowerCase().includes(search)
+    );
+  }, [availableMembers, memberSearch]);
+
+  const filteredResources = useMemo(() => {
+    if (!resourceSearch) return availableResources;
+    const search = resourceSearch.toLowerCase();
+    return availableResources.filter(resource =>
+      resource.name.toLowerCase().includes(search) ||
+      resource.type.toLowerCase().includes(search) ||
+      resource.integration.toLowerCase().includes(search)
+    );
+  }, [availableResources, resourceSearch]);
 
   useEffect(() => {
     loadData();
@@ -210,11 +233,13 @@ export default function GroupDetail() {
       toast.success('Учасника додано до групи');
       setIsMemberDialogOpen(false);
       setSelectedMember("");
+      setMemberSearch("");
       loadData();
     } catch (error) {
       console.error('Error adding member:', error);
       toast.error('Помилка додавання учасника');
     }
+  };
   };
 
   const handleRemoveMember = async (userId: string) => {
@@ -253,6 +278,7 @@ export default function GroupDetail() {
       toast.success('Ресурс додано до групи');
       setIsResourceDialogOpen(false);
       setSelectedResource("");
+      setResourceSearch("");
       loadData();
     } catch (error) {
       console.error('Error adding resource:', error);
@@ -378,21 +404,54 @@ export default function GroupDetail() {
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label>Користувач</Label>
-                        <Select value={selectedMember} onValueChange={setSelectedMember}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Виберіть користувача" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableMembers.map((member) => (
-                              <SelectItem key={member.user_id} value={member.user_id}>
-                                {member.profiles.first_name} {member.profiles.last_name} ({member.profiles.email})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Label>Пошук учасника</Label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Шукати за іменем або email..."
+                            value={memberSearch}
+                            onChange={(e) => setMemberSearch(e.target.value)}
+                            className="pl-9"
+                          />
+                        </div>
                       </div>
-                      <Button onClick={handleAddMember} className="w-full">
+                      <div>
+                        <Label>Виберіть користувача ({filteredMembers.length})</Label>
+                        <ScrollArea className="h-64 border rounded-md">
+                          <div className="p-2 space-y-1">
+                            {filteredMembers.map((member) => (
+                              <Button
+                                key={member.user_id}
+                                variant={selectedMember === member.user_id ? "secondary" : "ghost"}
+                                className="w-full justify-start text-left"
+                                onClick={() => setSelectedMember(member.user_id)}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarFallback>
+                                      {member.profiles.first_name?.[0]}{member.profiles.last_name?.[0]}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 overflow-hidden">
+                                    <p className="text-sm font-medium truncate">
+                                      {member.profiles.first_name} {member.profiles.last_name}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {member.profiles.email}
+                                    </p>
+                                  </div>
+                                </div>
+                              </Button>
+                            ))}
+                            {filteredMembers.length === 0 && (
+                              <div className="text-center py-8 text-muted-foreground text-sm">
+                                Нічого не знайдено
+                              </div>
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                      <Button onClick={handleAddMember} disabled={!selectedMember} className="w-full">
                         Додати учасника
                       </Button>
                     </div>
@@ -473,21 +532,50 @@ export default function GroupDetail() {
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label>Ресурс</Label>
-                        <Select value={selectedResource} onValueChange={setSelectedResource}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Виберіть ресурс" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableResources.map((resource) => (
-                              <SelectItem key={resource.id} value={resource.id}>
-                                {resource.name} ({resource.type})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Label>Пошук ресурсу</Label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Шукати за назвою, типом або інтеграцією..."
+                            value={resourceSearch}
+                            onChange={(e) => setResourceSearch(e.target.value)}
+                            className="pl-9"
+                          />
+                        </div>
                       </div>
-                      <Button onClick={handleAddResource} className="w-full">
+                      <div>
+                        <Label>Виберіть ресурс ({filteredResources.length})</Label>
+                        <ScrollArea className="h-64 border rounded-md">
+                          <div className="p-2 space-y-1">
+                            {filteredResources.map((resource) => (
+                              <Button
+                                key={resource.id}
+                                variant={selectedResource === resource.id ? "secondary" : "ghost"}
+                                className="w-full justify-start text-left"
+                                onClick={() => setSelectedResource(resource.id)}
+                              >
+                                <div className="flex-1 overflow-hidden">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <p className="text-sm font-medium truncate flex-1">
+                                      {resource.name}
+                                    </p>
+                                    {getTypeBadge(resource.type)}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {resource.integration}
+                                  </p>
+                                </div>
+                              </Button>
+                            ))}
+                            {filteredResources.length === 0 && (
+                              <div className="text-center py-8 text-muted-foreground text-sm">
+                                Нічого не знайдено
+                              </div>
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                      <Button onClick={handleAddResource} disabled={!selectedResource} className="w-full">
                         Додати ресурс
                       </Button>
                     </div>
