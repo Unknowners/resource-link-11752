@@ -194,6 +194,7 @@ export type Database = {
           email: string | null
           first_name: string | null
           id: string
+          is_super_admin: boolean | null
           last_name: string | null
           organization_id: string | null
           updated_at: string | null
@@ -204,6 +205,7 @@ export type Database = {
           email?: string | null
           first_name?: string | null
           id: string
+          is_super_admin?: boolean | null
           last_name?: string | null
           organization_id?: string | null
           updated_at?: string | null
@@ -214,6 +216,7 @@ export type Database = {
           email?: string | null
           first_name?: string | null
           id?: string
+          is_super_admin?: boolean | null
           last_name?: string | null
           organization_id?: string | null
           updated_at?: string | null
@@ -336,6 +339,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_super_admin: {
+        Args: { _user_id: string }
         Returns: boolean
       }
       log_audit_event: {
