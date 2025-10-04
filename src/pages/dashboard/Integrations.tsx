@@ -729,44 +729,52 @@ export default function Integrations() {
                   
                   {integration.auth_type === 'api_token' ? (
                     <div className="space-y-2">
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={async () => {
+                          // Знаходимо email, token та site URL з integration
+                          const { data: integrationData } = await supabase
+                            .from('integrations')
+                            .select('api_email, api_token, oauth_authorize_url')
+                            .eq('id', integration.id)
+                            .single();
+                          
+                          if (!integrationData?.api_email || !integrationData?.api_token) {
+                            toast.error('В інтеграції відсутні email або API token');
+                            return;
+                          }
+                          
+                          let siteUrl = integrationData.oauth_authorize_url as string | null;
+                          if (!siteUrl) {
+                            siteUrl = window.prompt('Введіть Atlassian Site URL (наприклад: yourcompany.atlassian.net)') || '';
+                            if (!siteUrl.trim()) {
+                              toast.error('Site URL обовʼязковий');
+                              return;
+                            }
+                          }
+                          
+                          await handleValidateApiToken(
+                            integration.id, 
+                            integrationData.api_email, 
+                            integrationData.api_token,
+                            siteUrl
+                          );
+                        }}
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        {isUserConnected(integration.id) ? 'Оновити статус' : 'Підключити'}
+                      </Button>
+
                       {isUserConnected(integration.id) && (
                         <Button 
-                          variant="outline" 
+                          variant="outline"
                           className="w-full"
-                          onClick={async () => {
-                            // Знаходимо email, token та site URL з integration
-                            const { data: integrationData } = await supabase
-                              .from('integrations')
-                              .select('api_email, api_token, oauth_authorize_url')
-                              .eq('id', integration.id)
-                              .single();
-                            
-                            if (integrationData?.api_email && integrationData?.api_token) {
-                              await handleValidateApiToken(
-                                integration.id, 
-                                integrationData.api_email, 
-                                integrationData.api_token,
-                                integrationData.oauth_authorize_url
-                              );
-                            } else {
-                              toast.error('Credentials не знайдено');
-                            }
-                          }}
+                          onClick={() => handleDisconnectIntegration(integration.id)}
                         >
-                          <RefreshCw className="mr-2 h-4 w-4" />
-                          Перевірити підключення
+                          Відключити
                         </Button>
                       )}
-                      <Button 
-                        variant={isUserConnected(integration.id) ? "outline" : "default"}
-                        className="w-full"
-                        onClick={() => isUserConnected(integration.id) 
-                          ? handleDisconnectIntegration(integration.id)
-                          : toast.info('API Token вже підключено на рівні організації')
-                        }
-                      >
-                        {isUserConnected(integration.id) ? 'Відключити' : 'Підключено'}
-                      </Button>
                     </div>
                   ) : integration.oauth_authorize_url ? (
                     isUserConnected(integration.id) ? (
