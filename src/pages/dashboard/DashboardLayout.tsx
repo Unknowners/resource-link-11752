@@ -19,9 +19,8 @@ import {
 } from "lucide-react";
 
 const navigation = [
-  { name: "Огляд", href: "/app", icon: LayoutDashboard },
-  { name: "Ресурси", href: "/app/resources", icon: FolderOpen },
-  { name: "FAQ & Q&A", href: "/app/faq", icon: FileText },
+  { name: "База знань", href: "/app", icon: FileText },
+  { name: "Джерела", href: "/app/resources", icon: FolderOpen },
 ];
 
 export default function DashboardLayout() {

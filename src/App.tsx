@@ -18,7 +18,7 @@ import Onboarding from "./pages/Onboarding";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
-import Overview from "./pages/dashboard/Overview";
+import KnowledgeBase from "./pages/dashboard/KnowledgeBase";
 import Staff from "./pages/dashboard/Staff";
 import Groups from "./pages/dashboard/Groups";
 import GroupDetail from "./pages/dashboard/GroupDetail";
@@ -69,13 +69,13 @@ const App = () => (
 
           {/* Organization Portal (/app) */}
           <Route path="/app" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<Overview />} />
+            <Route index element={<KnowledgeBase />} />
             <Route path="resources" element={<Resources />} />
             <Route path="resources/:id" element={<ResourceDetail />} />
-            <Route path="faq" element={<FAQ />} />
             <Route path="profile" element={<Profile />} />
             
             {/* Legacy routes kept for backwards compatibility */}
+            <Route path="faq" element={<FAQ />} />
             <Route path="staff" element={<Staff />} />
             <Route path="groups" element={<Groups />} />
             <Route path="groups/:id" element={<GroupDetail />} />
