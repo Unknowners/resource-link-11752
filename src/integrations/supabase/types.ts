@@ -194,7 +194,6 @@ export type Database = {
           email: string | null
           first_name: string | null
           id: string
-          is_super_admin: boolean | null
           last_name: string | null
           organization_id: string | null
           updated_at: string | null
@@ -205,7 +204,6 @@ export type Database = {
           email?: string | null
           first_name?: string | null
           id: string
-          is_super_admin?: boolean | null
           last_name?: string | null
           organization_id?: string | null
           updated_at?: string | null
@@ -216,7 +214,6 @@ export type Database = {
           email?: string | null
           first_name?: string | null
           id?: string
-          is_super_admin?: boolean | null
           last_name?: string | null
           organization_id?: string | null
           updated_at?: string | null
@@ -308,6 +305,27 @@ export type Database = {
           },
         ]
       }
+      super_admin_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["super_admin_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["super_admin_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["super_admin_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -341,6 +359,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_super_admin_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["super_admin_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_any_super_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       is_super_admin: {
         Args: { _user_id: string }
         Returns: boolean
@@ -357,6 +386,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      super_admin_role: "super_admin" | "support" | "finance" | "analyst"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -485,6 +515,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      super_admin_role: ["super_admin", "support", "finance", "analyst"],
     },
   },
 } as const

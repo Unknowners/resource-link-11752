@@ -40,12 +40,12 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
   const checkSuperAdminStatus = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('is_super_admin')
-        .eq('id', userId)
+        .from('super_admin_roles')
+        .select('role')
+        .eq('user_id', userId)
         .maybeSingle();
 
-      if (!error && data?.is_super_admin) {
+      if (!error && data) {
         setIsSuperAdmin(true);
       }
     } catch (error) {
@@ -64,7 +64,8 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
   }
 
   if (!session) {
-    return <Navigate to="/login" replace />;
+    // Redirect to admin login if admin route, otherwise to regular login
+    return <Navigate to={requireAdmin ? "/admin/login" : "/login"} replace />;
   }
 
   if (requireAdmin && !isSuperAdmin) {
