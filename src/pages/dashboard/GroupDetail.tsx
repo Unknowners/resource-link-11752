@@ -61,6 +61,8 @@ export default function GroupDetail() {
   const [selectedResource, setSelectedResource] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [resourceSearch, setResourceSearch] = useState("");
+  const [resourceTypeFilter, setResourceTypeFilter] = useState("");
+  const [resourceIntegrationFilter, setResourceIntegrationFilter] = useState("");
 
   const filteredMembers = useMemo(() => {
     if (!memberSearch) return availableMembers;
@@ -73,14 +75,40 @@ export default function GroupDetail() {
   }, [availableMembers, memberSearch]);
 
   const filteredResources = useMemo(() => {
-    if (!resourceSearch) return availableResources;
-    const search = resourceSearch.toLowerCase();
-    return availableResources.filter(resource =>
-      resource.name.toLowerCase().includes(search) ||
-      resource.type.toLowerCase().includes(search) ||
-      resource.integration.toLowerCase().includes(search)
-    );
-  }, [availableResources, resourceSearch]);
+    let filtered = availableResources;
+
+    // Filter by type
+    if (resourceTypeFilter) {
+      filtered = filtered.filter(resource => resource.type === resourceTypeFilter);
+    }
+
+    // Filter by integration
+    if (resourceIntegrationFilter) {
+      filtered = filtered.filter(resource => resource.integration === resourceIntegrationFilter);
+    }
+
+    // Filter by search text
+    if (resourceSearch) {
+      const search = resourceSearch.toLowerCase();
+      filtered = filtered.filter(resource =>
+        resource.name.toLowerCase().includes(search) ||
+        resource.type.toLowerCase().includes(search) ||
+        resource.integration.toLowerCase().includes(search)
+      );
+    }
+
+    return filtered;
+  }, [availableResources, resourceSearch, resourceTypeFilter, resourceIntegrationFilter]);
+
+  const uniqueResourceTypes = useMemo(() => {
+    const types = new Set(availableResources.map(r => r.type));
+    return Array.from(types).sort();
+  }, [availableResources]);
+
+  const uniqueIntegrations = useMemo(() => {
+    const integrations = new Set(availableResources.map(r => r.integration));
+    return Array.from(integrations).sort();
+  }, [availableResources]);
 
   useEffect(() => {
     loadData();
@@ -271,6 +299,8 @@ export default function GroupDetail() {
       setIsResourceDialogOpen(false);
       setSelectedResource("");
       setResourceSearch("");
+      setResourceTypeFilter("");
+      setResourceIntegrationFilter("");
       loadData();
     } catch (error) {
       console.error('Error adding resource:', error);
@@ -523,12 +553,46 @@ export default function GroupDetail() {
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label>Тип ресурсу</Label>
+                          <select
+                            className="w-full border rounded-md px-3 py-2 text-sm"
+                            value={resourceTypeFilter}
+                            onChange={(e) => setResourceTypeFilter(e.target.value)}
+                          >
+                            <option value="">Всі типи</option>
+                            {uniqueResourceTypes.map((type) => (
+                              <option key={type} value={type}>
+                                {type === 'jira_project' ? 'Jira Project' :
+                                 type === 'confluence_space' ? 'Confluence' :
+                                 type === 'atlassian_site' ? 'Atlassian Site' : type}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <Label>Інтеграція</Label>
+                          <select
+                            className="w-full border rounded-md px-3 py-2 text-sm"
+                            value={resourceIntegrationFilter}
+                            onChange={(e) => setResourceIntegrationFilter(e.target.value)}
+                          >
+                            <option value="">Всі інтеграції</option>
+                            {uniqueIntegrations.map((integration) => (
+                              <option key={integration} value={integration}>
+                                {integration}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                       <div>
                         <Label>Пошук ресурсу</Label>
                         <div className="relative">
                           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                           <Input
-                            placeholder="Шукати за назвою, типом або інтеграцією..."
+                            placeholder="Шукати за назвою..."
                             value={resourceSearch}
                             onChange={(e) => setResourceSearch(e.target.value)}
                             className="pl-9"
