@@ -3,36 +3,40 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const redirectParam = params.get("redirect");
+  const targetPath = redirectParam && redirectParam.startsWith("/") ? redirectParam : "/app";
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate("/app");
-      }
-    });
+useEffect(() => {
+  // Check if user is already logged in
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) {
+      navigate(targetPath, { replace: true });
+    }
+  });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        navigate("/app");
-      }
-    });
+  // Listen for auth changes
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    if (session) {
+      navigate(targetPath, { replace: true });
+    }
+  });
 
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+  return () => subscription.unsubscribe();
+}, [navigate, targetPath]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +56,7 @@ export default function Login() {
         }
       } else {
         toast.success("Успішний вхід!");
-        navigate("/app");
+        navigate(targetPath, { replace: true });
       }
     } catch (error) {
       toast.error("Помилка при вході");
