@@ -43,21 +43,39 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Sending invitation to ${email} from ${inviterName}`);
 
-    // Generate magic link for signup
-    const { data: signUpData, error: signUpError } = await supabase.auth.admin.generateLink({
-      type: 'magiclink',
-      email: email,
-      options: {
-        redirectTo: `${Deno.env.get("SUPABASE_URL")}/auth/v1/verify`,
-      }
-    });
+    // Generate unique token
+    const token = crypto.randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
-    if (signUpError) {
-      console.error("Error generating magic link:", signUpError);
-      throw signUpError;
+    // Get organization ID
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.organization_id) {
+      throw new Error("Organization not found");
     }
 
-    const inviteLink = signUpData.properties?.action_link || `${supabaseUrl}/signup`;
+    // Create invitation record
+    const { error: inviteError } = await supabase
+      .from('invitations')
+      .insert({
+        organization_id: profile.organization_id,
+        email,
+        token,
+        invited_by: user.id,
+        expires_at: expiresAt.toISOString(),
+      });
+
+    if (inviteError) {
+      console.error("Error creating invitation:", inviteError);
+      throw inviteError;
+    }
+
+    const inviteLink = `${supabaseUrl.replace('.supabase.co', '')}/signup?invite=${token}`;
 
     const emailResponse = await resend.emails.send({
       from: "AccessHub <onboarding@resend.dev>",
@@ -80,18 +98,21 @@ const handler = async (req: Request): Promise<Response> => {
           <body>
             <div class="container">
               <div class="header">
-                <h1>Запрошення до AccessHub</h1>
+                <h1>🎉 Запрошення до AccessHub</h1>
               </div>
               <div class="content">
                 <p>Привіт!</p>
                 <p><strong>${inviterName}</strong> запрошує вас приєднатися до <strong>${organizationName}</strong> в AccessHub.</p>
                 <p>AccessHub - це платформа для керування доступом до ресурсів вашої команди.</p>
                 <p style="text-align: center;">
-                  <a href="${inviteLink}" class="button">Прийняти запрошення</a>
+                  <a href="${inviteLink}" class="button">✨ Прийняти запрошення</a>
                 </p>
                 <p style="color: #666; font-size: 14px;">Або скопіюйте це посилання:</p>
                 <p style="background: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 12px;">${inviteLink}</p>
-                <p style="margin-top: 30px; color: #666; font-size: 12px;">Якщо ви не очікували цього запрошення, просто проігноруйте цей лист.</p>
+                <p style="margin-top: 30px; color: #666; font-size: 12px;">
+                  ⏰ Це запрошення дійсне протягом 7 днів.<br>
+                  Якщо ви не очікували цього запрошення, просто проігноруйте цей лист.
+                </p>
               </div>
               <div class="footer">
                 <p>AccessHub - управління доступом спрощено</p>
