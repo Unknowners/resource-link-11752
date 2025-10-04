@@ -82,11 +82,15 @@ Deno.serve(async (req) => {
           
           // Синхронізуємо Notion pages якщо є integration_id
           if (integration_id) {
+            console.log('Starting Notion sync for integration:', integration_id);
+            
             const { data: integration } = await supabaseClient
               .from('integrations')
               .select('organization_id, name')
               .eq('id', integration_id)
               .single();
+
+            console.log('Integration data:', integration);
 
             if (integration) {
               console.log('Syncing Notion pages...');
@@ -107,7 +111,10 @@ Deno.serve(async (req) => {
 
                 if (searchResponse.ok) {
                   const searchData = await searchResponse.json();
+                  console.log('Notion API response:', JSON.stringify(searchData, null, 2));
+                  
                   const pages = searchData.results || [];
+                  console.log(`Total pages from API: ${pages.length}`);
                   
                   // Фільтруємо тільки workspace pages (top-level)
                   const workspacePages = pages.filter((page: any) => 
@@ -115,7 +122,8 @@ Deno.serve(async (req) => {
                     (page.parent.type === 'workspace' && page.parent.workspace === true)
                   );
                   
-                  console.log(`Found ${workspacePages.length} workspace pages`);
+                  console.log(`Found ${workspacePages.length} workspace pages after filtering`);
+                  console.log('Workspace pages:', JSON.stringify(workspacePages, null, 2));
                   
                   const syncTime = new Date().toISOString();
                   const resources = [];
@@ -140,20 +148,31 @@ Deno.serve(async (req) => {
                     });
                   }
                   
+                  console.log(`Prepared ${resources.length} resources for insertion`);
+                  
                   // Видаляємо старі Notion ресурси
-                  await supabaseClient
+                  const { error: deleteError } = await supabaseClient
                     .from('resources')
                     .delete()
                     .eq('integration', integration.name)
                     .eq('type', 'notion_page');
                   
+                  if (deleteError) {
+                    console.error('Error deleting old resources:', deleteError);
+                  }
+                  
                   // Додаємо нові
                   if (resources.length > 0) {
-                    await supabaseClient
+                    const { error: insertError } = await supabaseClient
                       .from('resources')
                       .insert(resources);
                     
-                    console.log(`Synced ${resources.length} Notion pages`);
+                    if (insertError) {
+                      console.error('Error inserting resources:', insertError);
+                    } else {
+                      console.log(`Successfully synced ${resources.length} Notion pages`);
+                    }
+                  } else {
                   }
                   
                   // Оновлюємо last_sync_at
