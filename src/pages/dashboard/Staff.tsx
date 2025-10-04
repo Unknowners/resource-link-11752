@@ -5,8 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Plus, MoreVertical, Trash2 } from "lucide-react";
+import { Search, Plus, MoreVertical, Trash2, Edit } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -19,14 +22,25 @@ interface StaffMember {
   groups: string[];
 }
 
+interface Group {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export default function Staff() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<StaffMember | null>(null);
+  const [allGroups, setAllGroups] = useState<Group[]>([]);
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadStaff();
+    loadGroups();
   }, []);
 
   const loadStaff = async () => {
@@ -93,6 +107,105 @@ export default function Staff() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadGroups = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: member } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!member) return;
+
+      const { data: groups } = await supabase
+        .from('groups')
+        .select('*')
+        .eq('organization_id', member.organization_id);
+
+      if (groups) {
+        setAllGroups(groups);
+      }
+    } catch (error) {
+      console.error('Error loading groups:', error);
+    }
+  };
+
+  const handleEditUser = async (user: StaffMember) => {
+    setEditingUser(user);
+    
+    // Get current user's groups
+    const { data: userGroups } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', user.id);
+
+    const groupIds = new Set(userGroups?.map(g => g.group_id) || []);
+    setSelectedGroups(groupIds);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveUserGroups = async () => {
+    if (!editingUser) return;
+
+    try {
+      // Get current groups
+      const { data: currentGroups } = await supabase
+        .from('group_members')
+        .select('group_id')
+        .eq('user_id', editingUser.id);
+
+      const currentGroupIds = new Set(currentGroups?.map(g => g.group_id) || []);
+
+      // Find groups to add and remove
+      const groupsToAdd = Array.from(selectedGroups).filter(id => !currentGroupIds.has(id));
+      const groupsToRemove = Array.from(currentGroupIds).filter(id => !selectedGroups.has(id));
+
+      // Add user to new groups
+      if (groupsToAdd.length > 0) {
+        const { error: addError } = await supabase
+          .from('group_members')
+          .insert(groupsToAdd.map(group_id => ({
+            group_id,
+            user_id: editingUser.id
+          })));
+
+        if (addError) throw addError;
+      }
+
+      // Remove user from groups
+      if (groupsToRemove.length > 0) {
+        const { error: removeError } = await supabase
+          .from('group_members')
+          .delete()
+          .eq('user_id', editingUser.id)
+          .in('group_id', groupsToRemove);
+
+        if (removeError) throw removeError;
+      }
+
+      toast.success("Групи користувача оновлено");
+      setIsEditDialogOpen(false);
+      setEditingUser(null);
+      loadStaff();
+    } catch (error) {
+      console.error('Error updating user groups:', error);
+      toast.error("Помилка оновлення груп");
+    }
+  };
+
+  const toggleGroup = (groupId: string) => {
+    const newSelectedGroups = new Set(selectedGroups);
+    if (newSelectedGroups.has(groupId)) {
+      newSelectedGroups.delete(groupId);
+    } else {
+      newSelectedGroups.add(groupId);
+    }
+    setSelectedGroups(newSelectedGroups);
   };
 
   const handleRemoveMember = async (userId: string) => {
@@ -232,6 +345,10 @@ export default function Staff() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Редагувати
+                          </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => handleRemoveMember(user.id)}
                             className="text-destructive"
@@ -249,6 +366,57 @@ export default function Staff() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Редагувати користувача</DialogTitle>
+            <DialogDescription>
+              Управління групами для {editingUser?.first_name} {editingUser?.last_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-base mb-3 block">Групи</Label>
+              <div className="space-y-2 max-h-64 overflow-y-auto border rounded-md p-3">
+                {allGroups.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Немає доступних груп
+                  </p>
+                ) : (
+                  allGroups.map((group) => (
+                    <div key={group.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`group-${group.id}`}
+                        checked={selectedGroups.has(group.id)}
+                        onCheckedChange={() => toggleGroup(group.id)}
+                      />
+                      <label
+                        htmlFor={`group-${group.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                      >
+                        <div>{group.name}</div>
+                        {group.description && (
+                          <div className="text-xs text-muted-foreground">{group.description}</div>
+                        )}
+                      </label>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Скасувати
+              </Button>
+              <Button onClick={handleSaveUserGroups}>
+                Зберегти
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
