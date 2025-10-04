@@ -181,17 +181,26 @@ export default function Integrations() {
     }
 
     if (selectedPreset?.auth_type === 'api_token') {
-      if (!formData.oauth_authorize_url) {
-        toast.error("Вкажіть Atlassian Site URL");
-        return;
-      }
-      if (!formData.oauth_client_id) {
-        toast.error("Вкажіть email акаунту");
-        return;
-      }
-      if (!formData.oauth_client_secret) {
-        toast.error("Вкажіть API Token");
-        return;
+      if (selectedPreset.type === 'notion') {
+        // Для Notion потрібен тільки Integration Secret
+        if (!formData.oauth_client_secret) {
+          toast.error("Вкажіть Integration Secret");
+          return;
+        }
+      } else {
+        // Для Atlassian потрібні всі поля
+        if (!formData.oauth_authorize_url) {
+          toast.error("Вкажіть Atlassian Site URL");
+          return;
+        }
+        if (!formData.oauth_client_id) {
+          toast.error("Вкажіть email акаунту");
+          return;
+        }
+        if (!formData.oauth_client_secret) {
+          toast.error("Вкажіть API Token");
+          return;
+        }
       }
 
       // Для API Token - спочатку валідуємо, потім створюємо
@@ -687,7 +696,13 @@ export default function Integrations() {
               {selectedPreset && (
                 <Button 
                   onClick={handleCreateIntegration} 
-                  disabled={!formData.name || !formData.oauth_client_id || !formData.oauth_client_secret}
+                  disabled={
+                    !formData.name || 
+                    (selectedPreset.type === 'notion' 
+                      ? !formData.oauth_client_secret 
+                      : !formData.oauth_client_id || !formData.oauth_client_secret
+                    )
+                  }
                 >
                   Створити інтеграцію
                 </Button>
