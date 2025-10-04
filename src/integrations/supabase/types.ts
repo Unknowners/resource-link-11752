@@ -183,6 +183,9 @@ export type Database = {
       }
       integrations: {
         Row: {
+          api_email: string | null
+          api_token: string | null
+          auth_type: string | null
           config: Json | null
           created_at: string | null
           error_message: string | null
@@ -200,6 +203,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          api_email?: string | null
+          api_token?: string | null
+          auth_type?: string | null
           config?: Json | null
           created_at?: string | null
           error_message?: string | null
@@ -217,6 +223,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          api_email?: string | null
+          api_token?: string | null
+          auth_type?: string | null
           config?: Json | null
           created_at?: string | null
           error_message?: string | null

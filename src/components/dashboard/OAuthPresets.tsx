@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 export interface OAuthPreset {
   name: string;
   type: string;
-  oauth_authorize_url: string;
-  oauth_token_url: string;
-  oauth_scopes: string;
+  auth_type: 'oauth' | 'api_token';
+  oauth_authorize_url?: string;
+  oauth_token_url?: string;
+  oauth_scopes?: string;
   instructions: string;
 }
 
@@ -15,33 +16,42 @@ const getRedirectUrl = () => {
 
 export const OAUTH_PRESETS: OAuthPreset[] = [
   {
-    name: "Atlassian (Jira, Confluence)",
+    name: "Atlassian - API Token (рекомендовано)",
     type: "atlassian",
+    auth_type: "api_token",
+    instructions: `🔑 Простий спосіб - API Token + Email:
+
+1. Перейдіть на https://id.atlassian.com/manage-profile/security
+2. Натисніть "Create and manage API tokens"
+3. "Create API token" → Вкажіть назву → "Create"
+4. Скопіюйте токен (показується лише раз!)
+5. Вам знадобиться:
+   • Email вашого Atlassian акаунту
+   • API Token який ви щойно створили
+
+Це дає доступ до всіх Jira + Confluence ресурсів вашого акаунту.`
+  },
+  {
+    name: "Atlassian - OAuth 2.0 (для додатків)",
+    type: "atlassian",
+    auth_type: "oauth",
     oauth_authorize_url: "https://auth.atlassian.com/authorize",
     oauth_token_url: "https://auth.atlassian.com/oauth/token",
     oauth_scopes: "read:jira-work read:jira-user read:servicedesk-request read:servicemanagement-insight-objects read:confluence-space.summary read:confluence-props read:confluence-content.all read:confluence-content.summary search:confluence read:confluence-user read:confluence-groups offline_access",
-    instructions: `1. Створіть OAuth 2.0 app на https://developer.atlassian.com/console/myapps
-2. Натисніть "Create" → "OAuth 2.0 integration"
-3. Додайте Callback URL: ${getRedirectUrl()}
-4. Permissions → Jira API → Configure:
-   • View Jira issue data (read:jira-work)
-   • View user profiles (read:jira-user)
-   • View Service Management requests (read:servicedesk-request)
-   • Read Insight objects (read:servicemanagement-insight-objects)
-5. Permissions → Confluence API → Configure:
-   • Read space summary (read:confluence-space.summary)
-   • Read content properties (read:confluence-props)
-   • Read detailed content (read:confluence-content.all)
-   • Read content summary (read:confluence-content.summary)
-   • Search content (search:confluence)
-   • Read users (read:confluence-user)
-   • Read groups (read:confluence-groups)
-6. Classic scopes: offline_access
-7. Settings → копіюйте Client ID та Secret сюди`
+    instructions: `⚙️ Складний спосіб - OAuth 2.0 (для організаційних додатків):
+
+1. Створіть OAuth 2.0 app на https://developer.atlassian.com/console/myapps
+2. "Create" → "OAuth 2.0 integration"
+3. Callback URL: ${getRedirectUrl()}
+4. Permissions → Configure всі необхідні scopes
+5. Client ID та Secret з Settings
+
+Використовуйте тільки якщо вам потрібен app-to-app доступ.`
   },
   {
     name: "Google Drive",
     type: "google_drive",
+    auth_type: "oauth",
     oauth_authorize_url: "https://accounts.google.com/o/oauth2/v2/auth",
     oauth_token_url: "https://oauth2.googleapis.com/token",
     oauth_scopes: "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email",
@@ -55,6 +65,7 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
   {
     name: "GitHub",
     type: "github",
+    auth_type: "oauth",
     oauth_authorize_url: "https://github.com/login/oauth/authorize",
     oauth_token_url: "https://github.com/login/oauth/access_token",
     oauth_scopes: "repo read:user",
@@ -67,6 +78,7 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
   {
     name: "Microsoft 365",
     type: "microsoft",
+    auth_type: "oauth",
     oauth_authorize_url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
     oauth_token_url: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
     oauth_scopes: "Files.Read.All User.Read offline_access",
@@ -80,6 +92,7 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
   {
     name: "Slack",
     type: "slack",
+    auth_type: "oauth",
     oauth_authorize_url: "https://slack.com/oauth/v2/authorize",
     oauth_token_url: "https://slack.com/api/oauth.v2.access",
     oauth_scopes: "channels:read files:read users:read",

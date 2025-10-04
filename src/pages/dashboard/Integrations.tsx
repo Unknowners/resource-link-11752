@@ -148,9 +148,9 @@ export default function Integrations() {
       type: preset.type,
       oauth_client_id: "",
       oauth_client_secret: "",
-      oauth_authorize_url: preset.oauth_authorize_url,
-      oauth_token_url: preset.oauth_token_url,
-      oauth_scopes: preset.oauth_scopes,
+      oauth_authorize_url: preset.oauth_authorize_url || "",
+      oauth_token_url: preset.oauth_token_url || "",
+      oauth_scopes: preset.oauth_scopes || "",
     });
   };
 
@@ -158,19 +158,31 @@ export default function Integrations() {
     if (!organizationId) return;
     
     try {
+      const insertData: any = {
+        organization_id: organizationId,
+        name: formData.name,
+        type: formData.type,
+        status: 'connected',
+        auth_type: selectedPreset?.auth_type || 'oauth',
+      };
+
+      // Для OAuth додаємо OAuth поля
+      if (selectedPreset?.auth_type === 'oauth') {
+        insertData.oauth_client_id = formData.oauth_client_id || null;
+        insertData.oauth_client_secret = formData.oauth_client_secret || null;
+        insertData.oauth_authorize_url = formData.oauth_authorize_url || null;
+        insertData.oauth_token_url = formData.oauth_token_url || null;
+        insertData.oauth_scopes = formData.oauth_scopes || null;
+      } 
+      // Для API Token додаємо email та token
+      else if (selectedPreset?.auth_type === 'api_token') {
+        insertData.api_email = formData.oauth_client_id; // reuse field for email
+        insertData.api_token = formData.oauth_client_secret; // reuse field for token
+      }
+
       const { error } = await supabase
         .from('integrations')
-        .insert({
-          organization_id: organizationId,
-          name: formData.name,
-          type: formData.type,
-          status: 'connected',
-          oauth_client_id: formData.oauth_client_id || null,
-          oauth_client_secret: formData.oauth_client_secret || null,
-          oauth_authorize_url: formData.oauth_authorize_url || null,
-          oauth_token_url: formData.oauth_token_url || null,
-          oauth_scopes: formData.oauth_scopes || null,
-        });
+        .insert(insertData);
 
       if (error) throw error;
 
@@ -379,32 +391,61 @@ export default function Integrations() {
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="oauth_client_id">Client ID *</Label>
-                  <Input
-                    id="oauth_client_id"
-                    value={formData.oauth_client_id}
-                    onChange={(e) => setFormData({ ...formData, oauth_client_id: e.target.value })}
-                    placeholder="Отримайте з консолі розробника"
-                  />
-                </div>
+                {selectedPreset.auth_type === 'api_token' ? (
+                  <>
+                    <div>
+                      <Label htmlFor="oauth_client_id">Email акаунту *</Label>
+                      <Input
+                        id="oauth_client_id"
+                        type="email"
+                        value={formData.oauth_client_id}
+                        onChange={(e) => setFormData({ ...formData, oauth_client_id: e.target.value })}
+                        placeholder="your-email@company.com"
+                      />
+                    </div>
 
-                <div>
-                  <Label htmlFor="oauth_client_secret">Client Secret *</Label>
-                  <Input
-                    id="oauth_client_secret"
-                    type="password"
-                    value={formData.oauth_client_secret}
-                    onChange={(e) => setFormData({ ...formData, oauth_client_secret: e.target.value })}
-                    placeholder="Отримайте з консолі розробника"
-                  />
-                </div>
+                    <div>
+                      <Label htmlFor="oauth_client_secret">API Token *</Label>
+                      <Input
+                        id="oauth_client_secret"
+                        type="password"
+                        value={formData.oauth_client_secret}
+                        onChange={(e) => setFormData({ ...formData, oauth_client_secret: e.target.value })}
+                        placeholder="Вставте токен з Atlassian"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <Label htmlFor="oauth_client_id">Client ID *</Label>
+                      <Input
+                        id="oauth_client_id"
+                        value={formData.oauth_client_id}
+                        onChange={(e) => setFormData({ ...formData, oauth_client_id: e.target.value })}
+                        placeholder="Отримайте з консолі розробника"
+                      />
+                    </div>
 
-                <div className="space-y-2 pt-2 border-t">
-                  <p className="text-sm font-medium">OAuth конфігурація</p>
-                  <p className="text-xs text-muted-foreground">
-                    Заповнено автоматично. Можете змінити scopes якщо потрібні інші права.
-                  </p>
+                    <div>
+                      <Label htmlFor="oauth_client_secret">Client Secret *</Label>
+                      <Input
+                        id="oauth_client_secret"
+                        type="password"
+                        value={formData.oauth_client_secret}
+                        onChange={(e) => setFormData({ ...formData, oauth_client_secret: e.target.value })}
+                        placeholder="Отримайте з консолі розробника"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {selectedPreset.auth_type === 'oauth' && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <p className="text-sm font-medium">OAuth конфігурація</p>
+                    <p className="text-xs text-muted-foreground">
+                      Заповнено автоматично. Можете змінити scopes якщо потрібні інші права.
+                    </p>
                   
                   <div>
                     <Label htmlFor="oauth_authorize_url" className="text-xs text-muted-foreground">Authorization URL</Label>
@@ -443,6 +484,7 @@ export default function Integrations() {
                     </p>
                   </div>
                 </div>
+                )}
               </div>
             )}
 
