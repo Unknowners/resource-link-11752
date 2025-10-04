@@ -14,8 +14,11 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
+    console.log('[ProtectedRoute] Mounting, current path:', window.location.pathname);
+    
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('[ProtectedRoute] Initial session:', session ? 'exists' : 'null');
       setSession(session);
       if (session && requireAdmin) {
         checkSuperAdminStatus(session.user.id);
@@ -26,6 +29,7 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[ProtectedRoute] Auth state changed:', event, 'session:', session ? 'exists' : 'null');
       setSession(session);
       if (session && requireAdmin) {
         checkSuperAdminStatus(session.user.id);
