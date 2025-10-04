@@ -21,6 +21,7 @@ interface StaffMember {
   email: string | null;
   role: string;
   status: string;
+  invitation_status: string;
   groups: string[];
 }
 
@@ -84,7 +85,7 @@ export default function Staff() {
 
       const { data: members } = await supabase
         .from('organization_members')
-        .select('user_id, role, status')
+        .select('user_id, role, status, invitation_status')
         .eq('organization_id', member.organization_id)
         .range(from, to);
 
@@ -119,6 +120,7 @@ export default function Staff() {
           email: profile.email,
           role: memberData?.role || 'member',
           status: memberData?.status || 'active',
+          invitation_status: memberData?.invitation_status || 'accepted',
           groups: userGroups
         };
       });
@@ -319,6 +321,45 @@ export default function Staff() {
     }
   };
 
+  const handleResendInvitation = async (user: StaffMember) => {
+    if (!organizationId) return;
+
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error("Not authenticated");
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("id", currentUser.id)
+        .single();
+
+      const { data: organization } = await supabase
+        .from("organizations")
+        .select("name")
+        .eq("id", organizationId)
+        .single();
+
+      const inviterName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Колега';
+      const organizationName = organization?.name || 'вашу організацію';
+
+      const { error } = await supabase.functions.invoke("send-invitation", {
+        body: {
+          email: user.email,
+          organizationName,
+          inviterName,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success(`Запрошення повторно надіслано на ${user.email}`);
+    } catch (error: any) {
+      console.error("Error resending invitation:", error);
+      toast.error("Помилка відправки запрошення");
+    }
+  };
+
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   const handlePreviousPage = () => {
@@ -357,6 +398,18 @@ export default function Staff() {
     ) : (
       <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
         Заблокований
+      </Badge>
+    );
+  };
+
+  const getInvitationBadge = (invitationStatus: string) => {
+    return invitationStatus === "accepted" ? (
+      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+        Підтверджено
+      </Badge>
+    ) : (
+      <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+        Очікує підтвердження
       </Badge>
     );
   };
@@ -414,6 +467,7 @@ export default function Staff() {
                   <TableHead>Email</TableHead>
                   <TableHead>Роль</TableHead>
                   <TableHead>Статус</TableHead>
+                  <TableHead>Запрошення</TableHead>
                   <TableHead>Групи</TableHead>
                   <TableHead className="text-right">Дії</TableHead>
                 </TableRow>
@@ -436,6 +490,7 @@ export default function Staff() {
                     <TableCell className="text-muted-foreground">{user.email}</TableCell>
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
                     <TableCell>{getStatusBadge(user.status)}</TableCell>
+                    <TableCell>{getInvitationBadge(user.invitation_status)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
                         {user.groups.map((group, index) => (
@@ -457,6 +512,12 @@ export default function Staff() {
                             <Edit className="mr-2 h-4 w-4" />
                             Редагувати
                           </DropdownMenuItem>
+                          {user.invitation_status === 'pending' && (
+                            <DropdownMenuItem onClick={() => handleResendInvitation(user)}>
+                              <UserPlus className="mr-2 h-4 w-4" />
+                              Надіслати знову
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem 
                             onClick={() => handleRemoveMember(user.id)}
                             className="text-destructive"

@@ -30,13 +30,18 @@ export const InviteUserDialog = () => {
         .from("profiles")
         .select("first_name, last_name, organization_id")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
+
+      if (!profile?.organization_id) {
+        toast.error("Організація не знайдена");
+        return;
+      }
 
       const { data: organization } = await supabase
         .from("organizations")
         .select("name")
-        .eq("id", profile?.organization_id)
-        .single();
+        .eq("id", profile.organization_id)
+        .maybeSingle();
 
       const inviterName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Колега';
       const organizationName = organization?.name || 'вашу організацію';
