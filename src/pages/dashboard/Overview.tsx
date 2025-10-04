@@ -4,45 +4,49 @@ import { FolderOpen, Users, Link2, CheckCircle2 } from "lucide-react";
 export default function Overview() {
   const stats = [
     {
-      name: "Total Resources",
+      name: "Всього ресурсів",
       value: "24",
       icon: FolderOpen,
-      description: "Across all integrations",
+      description: "З усіх інтеграцій",
+      gradient: "from-blue-500 to-cyan-500",
     },
     {
-      name: "Active Users",
+      name: "Активних користувачів",
       value: "12",
       icon: Users,
-      description: "Team members",
+      description: "Учасників команди",
+      gradient: "from-purple-500 to-pink-500",
     },
     {
-      name: "Integrations",
+      name: "Інтеграції",
       value: "4",
       icon: Link2,
-      description: "Connected services",
+      description: "Підключені сервіси",
+      gradient: "from-green-500 to-emerald-500",
     },
     {
-      name: "Groups",
+      name: "Груп",
       value: "5",
       icon: CheckCircle2,
-      description: "Active groups",
+      description: "Активних груп",
+      gradient: "from-orange-500 to-red-500",
     },
   ];
 
   const recentActivity = [
-    { user: "John Doe", action: "added a new resource", resource: "Project Alpha", time: "2 hours ago" },
-    { user: "Jane Smith", action: "invited", resource: "Mike Johnson", time: "5 hours ago" },
-    { user: "Admin", action: "connected", resource: "Jira integration", time: "1 day ago" },
-    { user: "Sarah Lee", action: "created group", resource: "Marketing Team", time: "2 days ago" },
+    { user: "Іван Петренко", action: "додав ресурс", resource: "Project Alpha", time: "2 години тому" },
+    { user: "Олена Коваль", action: "запросив", resource: "Микола Сидоренко", time: "5 годин тому" },
+    { user: "Admin", action: "підключив", resource: "Jira інтеграцію", time: "1 день тому" },
+    { user: "Марія Шевченко", action: "створив групу", resource: "Marketing Team", time: "2 дні тому" },
   ];
 
   return (
     <div className="p-8 space-y-8">
       {/* Header */}
       <div>
-        <h1 className="mb-2">Dashboard Overview</h1>
-        <p className="text-muted-foreground">
-          Welcome back! Here's what's happening with your organization.
+        <h1 className="font-display">Огляд панелі</h1>
+        <p className="text-muted-foreground text-lg mt-2">
+          Ласкаво просимо! Ось що відбувається у вашій організації.
         </p>
       </div>
 
@@ -51,13 +55,15 @@ export default function Overview() {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={stat.name}>
+            <Card key={stat.name} className="glass-card hover:shadow-xl transition-all border-2">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{stat.name}</CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
+                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${stat.gradient} flex items-center justify-center`}>
+                  <Icon className="h-5 w-5 text-white" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
+                <div className="text-3xl font-bold font-display">{stat.value}</div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {stat.description}
                 </p>
@@ -68,23 +74,23 @@ export default function Overview() {
       </div>
 
       {/* Recent Activity */}
-      <Card>
+      <Card className="border-2">
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest updates from your organization</CardDescription>
+          <CardTitle className="text-2xl font-display">Остання активність</CardTitle>
+          <CardDescription className="text-base">Останні оновлення у вашій організації</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-6">
             {recentActivity.map((activity, index) => (
-              <div key={index} className="flex items-start gap-4 pb-4 border-b last:border-b-0 last:pb-0">
+              <div key={index} className="flex items-start gap-4 pb-6 border-b last:border-b-0 last:pb-0">
                 <div className="w-2 h-2 mt-2 rounded-full bg-primary" />
                 <div className="flex-1">
-                  <p className="text-sm">
-                    <span className="font-medium">{activity.user}</span>{" "}
+                  <p className="text-base">
+                    <span className="font-semibold">{activity.user}</span>{" "}
                     {activity.action}{" "}
-                    <span className="font-medium">{activity.resource}</span>
+                    <span className="font-semibold">{activity.resource}</span>
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {activity.time}
                   </p>
                 </div>
@@ -93,30 +99,6 @@ export default function Overview() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="glass-card cursor-pointer hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-lg">Connect Integration</CardTitle>
-            <CardDescription>
-              Add Jira, Confluence, Notion, or Google Drive
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card className="glass-card cursor-pointer hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-lg">Invite Team Members</CardTitle>
-            <CardDescription>Add new users to your organization</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card className="glass-card cursor-pointer hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-lg">Create Group</CardTitle>
-            <CardDescription>Organize your team into groups</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
     </div>
   );
 }
