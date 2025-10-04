@@ -403,15 +403,17 @@ export default function Staff() {
   };
 
   const getInvitationBadge = (invitationStatus: string) => {
-    return invitationStatus === "accepted" ? (
-      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-        Підтверджено
-      </Badge>
-    ) : (
-      <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-        Очікує підтвердження
-      </Badge>
-    );
+    // Показуємо статус тільки якщо це реально запрошення (pending)
+    // Для звичайних користувачів (accepted) не показуємо нічого
+    if (invitationStatus === "pending") {
+      return (
+        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+          Очікує підтвердження
+        </Badge>
+      );
+    }
+    // Для accepted повертаємо "-" або просто порожнє
+    return <span className="text-muted-foreground">—</span>;
   };
 
   return (
