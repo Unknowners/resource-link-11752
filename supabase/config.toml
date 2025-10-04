@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.oauth-refresh]
 verify_jwt = true
+
+[functions.validate-api-token]
+verify_jwt = true

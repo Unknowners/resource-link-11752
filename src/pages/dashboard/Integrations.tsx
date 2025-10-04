@@ -23,6 +23,7 @@ interface Integration {
   oauth_client_id?: string;
   oauth_authorize_url?: string;
   oauth_scopes?: string;
+  auth_type?: string;
 }
 
 interface IntegrationCredential {
@@ -180,11 +181,33 @@ export default function Integrations() {
         insertData.api_token = formData.oauth_client_secret; // reuse field for token
       }
 
-      const { error } = await supabase
+      const { data: newIntegration, error } = await supabase
         .from('integrations')
-        .insert(insertData);
+        .insert(insertData)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      toast.success("Інтеграцію створено");
+      
+      // Якщо це API Token - одразу валідуємо
+      if (selectedPreset?.auth_type === 'api_token' && newIntegration) {
+        await handleValidateApiToken(newIntegration.id, formData.oauth_client_id, formData.oauth_client_secret);
+      }
+
+      setIsDialogOpen(false);
+      setFormData({ 
+        name: "", 
+        type: "",
+        oauth_client_id: "",
+        oauth_client_secret: "",
+        oauth_authorize_url: "",
+        oauth_token_url: "",
+        oauth_scopes: "",
+      });
+      setSelectedPreset(null);
+      loadIntegrations();
 
       toast.success("Інтеграцію створено");
       setIsDialogOpen(false);
@@ -258,6 +281,35 @@ export default function Integrations() {
     } catch (error) {
       console.error('OAuth callback error:', error);
       toast.error(`Помилка OAuth: ${error instanceof Error ? error.message : 'Невідома помилка'}`);
+    }
+  };
+
+  const handleValidateApiToken = async (integrationId: string, email: string, apiToken: string) => {
+    try {
+      const loadingToast = toast.loading('Перевірка API Token...');
+      
+      const { data, error } = await supabase.functions.invoke('validate-api-token', {
+        body: {
+          integration_id: integrationId,
+          email: email,
+          api_token: apiToken,
+        },
+      });
+
+      toast.dismiss(loadingToast);
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success(data.message);
+      } else {
+        toast.error(data?.message || data?.error || 'Помилка валідації');
+      }
+      
+      loadIntegrations();
+    } catch (error) {
+      console.error('API token validation error:', error);
+      toast.error(`Помилка: ${error instanceof Error ? error.message : 'Невідома помилка'}`);
     }
   };
 
@@ -597,7 +649,21 @@ export default function Integrations() {
                     )}
                   </div>
                   
-                  {integration.oauth_authorize_url ? (
+                  {integration.auth_type === 'api_token' ? (
+                    isUserConnected(integration.id) ? (
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => handleDisconnectIntegration(integration.id)}
+                      >
+                        Відключити
+                      </Button>
+                    ) : (
+                      <p className="text-xs text-muted-foreground text-center">
+                        API Token буде автоматично перевірено при створенні
+                      </p>
+                    )
+                  ) : integration.oauth_authorize_url ? (
                     isUserConnected(integration.id) ? (
                       <Button 
                         variant="outline" 
@@ -616,7 +682,7 @@ export default function Integrations() {
                     )
                   ) : (
                     <p className="text-xs text-muted-foreground text-center">
-                      OAuth не налаштовано адміністратором
+                      Налаштуйте інтеграцію для підключення
                     </p>
                   )}
                 </div>
