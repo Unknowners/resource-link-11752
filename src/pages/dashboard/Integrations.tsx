@@ -49,8 +49,37 @@ export default function Integrations() {
   });
   const [selectedPreset, setSelectedPreset] = useState<OAuthPreset | null>(null);
 
+
   useEffect(() => {
     loadIntegrations();
+    
+    // Обробляємо OAuth callback
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    const error = urlParams.get('error');
+
+    if (error) {
+      toast.error(`OAuth помилка: ${error}`);
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+
+    if (code && state) {
+      const savedState = sessionStorage.getItem('oauth_state');
+      const integrationId = sessionStorage.getItem('oauth_integration_id');
+
+      if (state !== savedState) {
+        toast.error('Невалідний OAuth state');
+        window.history.replaceState({}, '', window.location.pathname);
+        return;
+      }
+
+      handleOAuthCallback(code, integrationId!);
+      sessionStorage.removeItem('oauth_state');
+      sessionStorage.removeItem('oauth_integration_id');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, []);
 
   const loadIntegrations = async () => {
@@ -177,6 +206,32 @@ export default function Integrations() {
     }
   };
 
+  const handleOAuthCallback = async (code: string, integrationId: string) => {
+    try {
+      toast.loading('Обробка авторизації...');
+      
+      const { data, error } = await supabase.functions.invoke('oauth-callback', {
+        body: {
+          integration_id: integrationId,
+          code: code,
+          state: sessionStorage.getItem('oauth_state'),
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success('Успішно підключено! Токени збережено.');
+        loadIntegrations();
+      } else {
+        throw new Error(data?.error || 'Невідома помилка');
+      }
+    } catch (error) {
+      console.error('OAuth callback error:', error);
+      toast.error(`Помилка OAuth: ${error instanceof Error ? error.message : 'Невідома помилка'}`);
+    }
+  };
+
   const handleConnectIntegration = async (integration: Integration) => {
     if (!integration.oauth_authorize_url || !integration.oauth_client_id) {
       toast.error("OAuth не налаштовано для цієї інтеграції");
@@ -200,7 +255,12 @@ export default function Integrations() {
     }
 
     console.log('Redirecting to OAuth:', authUrl.toString());
-    window.location.href = authUrl.toString();
+    toast.info('Переадресація на сторінку авторизації...');
+    
+    // Невелика затримка для відображення toast
+    setTimeout(() => {
+      window.location.href = authUrl.toString();
+    }, 500);
   };
 
   const handleDisconnectIntegration = async (integrationId: string) => {
