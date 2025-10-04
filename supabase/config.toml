@@ -8,3 +8,7 @@ verify_jwt = true
 
 [functions.validate-api-token]
 verify_jwt = true
+
+[functions.send-invitation]
+verify_jwt = true
+import_map = "./functions/send-invitation/deno.json"

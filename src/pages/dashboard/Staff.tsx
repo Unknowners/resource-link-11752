@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Plus, MoreVertical, Trash2, Edit, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, MoreVertical, Trash2, Edit, ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
+import { InviteUserDialog } from "@/components/dashboard/InviteUserDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -370,10 +371,13 @@ export default function Staff() {
             Manage team members and their access
           </p>
         </div>
-        <Button onClick={() => setIsInviteDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Invite User
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsInviteDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Додати існуючого
+          </Button>
+          <InviteUserDialog />
+        </div>
       </div>
 
       {/* Search */}
