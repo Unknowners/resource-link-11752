@@ -55,19 +55,38 @@ Deno.serve(async (req) => {
     const redirectUri = integration.config?.redirect_uri || 'https://documinds.online/app/integrations';
     console.log('Using redirect_uri for token exchange:', redirectUri);
     
-    const tokenResponse = await fetch(integration.oauth_token_url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code: code,
-        client_id: integration.oauth_client_id,
-        client_secret: integration.oauth_client_secret,
-        redirect_uri: redirectUri,
-      }),
-    });
+    let tokenResponse: Response;
+    if (integration.type === 'notion') {
+      // Notion requires Basic auth header and JSON body for token exchange
+      const basic = btoa(`${integration.oauth_client_id}:${integration.oauth_client_secret}`);
+      tokenResponse = await fetch(integration.oauth_token_url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${basic}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: redirectUri,
+        }),
+      });
+    } else {
+      // Default OAuth token exchange (x-www-form-urlencoded)
+      tokenResponse = await fetch(integration.oauth_token_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code,
+          client_id: integration.oauth_client_id,
+          client_secret: integration.oauth_client_secret,
+          redirect_uri: redirectUri,
+        }),
+      });
+    }
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
