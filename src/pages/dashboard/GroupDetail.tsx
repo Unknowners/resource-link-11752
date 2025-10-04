@@ -601,30 +601,30 @@ export default function GroupDetail() {
                       </div>
                       <div>
                         <Label>Виберіть ресурс ({filteredResources.length})</Label>
-                        <ScrollArea className="h-64 border rounded-md">
-                          <div className="p-2 space-y-1">
+                        <ScrollArea className="h-80 border rounded-md mt-2">
+                          <div className="p-3 space-y-2">
                             {filteredResources.map((resource) => (
                               <Button
                                 key={resource.id}
                                 variant={selectedResource === resource.id ? "secondary" : "ghost"}
-                                className="w-full justify-start text-left"
+                                className="w-full justify-start text-left h-auto py-3 px-4"
                                 onClick={() => setSelectedResource(resource.id)}
                               >
-                                <div className="flex-1 overflow-hidden">
-                                  <div className="flex items-center gap-2 mb-1">
+                                <div className="flex-1 overflow-hidden space-y-2">
+                                  <div className="flex items-center gap-2">
                                     <p className="text-sm font-medium truncate flex-1">
                                       {resource.name}
                                     </p>
                                     {getTypeBadge(resource.type)}
                                   </div>
                                   <p className="text-xs text-muted-foreground truncate">
-                                    {resource.integration}
+                                    📦 {resource.integration}
                                   </p>
                                 </div>
                               </Button>
                             ))}
                             {filteredResources.length === 0 && (
-                              <div className="text-center py-8 text-muted-foreground text-sm">
+                              <div className="text-center py-12 text-muted-foreground text-sm">
                                 Нічого не знайдено
                               </div>
                             )}
