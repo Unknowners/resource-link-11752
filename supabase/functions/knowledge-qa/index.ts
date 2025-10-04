@@ -13,18 +13,16 @@ serve(async (req) => {
   try {
     const { question, userId, organizationId } = await req.json();
 
-    console.log('Forwarding request to n8n webhook:', { question, userId, organizationId });
+    const params = new URLSearchParams({
+      question: String(question ?? ''),
+      userId: String(userId ?? ''),
+      organizationId: String(organizationId ?? ''),
+    });
 
-    const response = await fetch('https://documindsonline.app.n8n.cloud/webhook/94277c56-d3f1-4d6f-b143-26afefe0bcca', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        question,
-        userId,
-        organizationId,
-      })
+    const url = `https://documindsonline.app.n8n.cloud/webhook/94277c56-d3f1-4d6f-b143-26afefe0bcca?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
     });
 
     if (!response.ok) {
