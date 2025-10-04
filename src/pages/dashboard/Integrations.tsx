@@ -381,11 +381,11 @@ export default function Integrations() {
 
       if (data?.success) {
         toast.success(data.message);
+        // Оновлюємо дані після синхронізації
+        await loadIntegrations();
       } else {
         toast.error(data?.message || data?.error || 'Помилка валідації');
       }
-      
-      loadIntegrations();
     } catch (error) {
       console.error('API token validation error:', error);
       toast.error(`Помилка: ${error instanceof Error ? error.message : 'Невідома помилка'}`);
