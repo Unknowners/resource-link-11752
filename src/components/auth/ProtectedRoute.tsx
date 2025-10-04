@@ -14,27 +14,32 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
-    console.log('[ProtectedRoute] Mounting, current path:', window.location.pathname);
-    
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('[ProtectedRoute] Initial session:', session ? 'exists' : 'null');
+    let initialHandled = false;
+
+    // 1) Subscribe FIRST to avoid race conditions
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      if (session && requireAdmin) {
-        checkSuperAdminStatus(session.user.id);
-      } else {
-        setLoading(false);
+
+      if (!initialHandled && event === "INITIAL_SESSION") {
+        initialHandled = true;
+        if (session && requireAdmin) {
+          checkSuperAdminStatus(session.user.id);
+        } else {
+          setLoading(false);
+        }
       }
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[ProtectedRoute] Auth state changed:', event, 'session:', session ? 'exists' : 'null');
+    // 2) Then check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session && requireAdmin) {
-        checkSuperAdminStatus(session.user.id);
-      } else {
-        setLoading(false);
+      if (!initialHandled) {
+        initialHandled = true;
+        if (session && requireAdmin) {
+          checkSuperAdminStatus(session.user.id);
+        } else {
+          setLoading(false);
+        }
       }
     });
 
@@ -75,7 +80,7 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
   }
 
   if (requireAdmin && !isSuperAdmin) {
-    return <Navigate to="/forbidden" replace />;
+    return <Navigate to="/403" replace />;
   }
 
   return <>{children}</>;
