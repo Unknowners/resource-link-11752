@@ -1,51 +1,125 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Plus, MoreVertical } from "lucide-react";
+import { Search, Plus, MoreVertical, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface StaffMember {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  role: string;
+  groups: string[];
+}
 
 export default function Staff() {
-  const staff = [
-    {
-      id: "1",
-      firstName: "John",
-      lastName: "Doe",
-      email: "john@demo.com",
-      role: "Org Admin",
-      status: "Active",
-      groups: ["Engineering", "Leadership"],
-    },
-    {
-      id: "2",
-      firstName: "Jane",
-      lastName: "Smith",
-      email: "jane@demo.com",
-      role: "Member",
-      status: "Active",
-      groups: ["Product"],
-    },
-    {
-      id: "3",
-      firstName: "Mike",
-      lastName: "Johnson",
-      email: "mike@demo.com",
-      role: "Member",
-      status: "Pending",
-      groups: ["Engineering"],
-    },
-    {
-      id: "4",
-      firstName: "Sarah",
-      lastName: "Lee",
-      email: "sarah@demo.com",
-      role: "Member",
-      status: "Active",
-      groups: ["Marketing"],
-    },
-  ];
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadStaff();
+  }, []);
+
+  const loadStaff = async () => {
+    try {
+      setLoading(true);
+      
+      // Get current user's organization
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: member } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!member) return;
+      setOrganizationId(member.organization_id);
+
+      // Get all members of the organization
+      const { data: members } = await supabase
+        .from('organization_members')
+        .select('user_id, role')
+        .eq('organization_id', member.organization_id);
+
+      if (!members) return;
+
+      // Get profiles for all members
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email')
+        .in('id', members.map(m => m.user_id));
+
+      if (!profiles) return;
+
+      // Get group memberships
+      const { data: groupMemberships } = await supabase
+        .from('group_members')
+        .select('user_id, group_id, groups(name)')
+        .in('user_id', members.map(m => m.user_id));
+
+      // Combine data
+      const staffData: StaffMember[] = profiles.map(profile => {
+        const memberRole = members.find(m => m.user_id === profile.id);
+        const userGroups = groupMemberships
+          ?.filter(gm => gm.user_id === profile.id)
+          .map(gm => (gm.groups as any)?.name)
+          .filter(Boolean) || [];
+
+        return {
+          id: profile.id,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          email: profile.email,
+          role: memberRole?.role || 'member',
+          groups: userGroups
+        };
+      });
+
+      setStaff(staffData);
+    } catch (error) {
+      console.error('Error loading staff:', error);
+      toast.error("Помилка завантаження співробітників");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!organizationId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('organization_members')
+        .delete()
+        .eq('user_id', userId)
+        .eq('organization_id', organizationId);
+
+      if (error) throw error;
+
+      toast.success("Користувача видалено");
+      loadStaff();
+    } catch (error) {
+      console.error('Error removing member:', error);
+      toast.error("Помилка видалення користувача");
+    }
+  };
+
+  const filteredStaff = staff.filter(member =>
+    `${member.first_name} ${member.last_name} ${member.email}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase())
+  );
 
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0]}${lastName[0]}`;
@@ -92,7 +166,12 @@ export default function Staff() {
         <CardContent className="pt-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search users..." className="pl-9" />
+            <Input 
+              placeholder="Пошук користувачів..." 
+              className="pl-9"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
         </CardContent>
       </Card>
@@ -100,67 +179,74 @@ export default function Staff() {
       {/* Staff Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Groups</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {staff.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          {getInitials(user.firstName, user.lastName)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium">
-                        {user.firstName} {user.lastName}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                  <TableCell>{getRoleBadge(user.role)}</TableCell>
-                  <TableCell>{getStatusBadge(user.status)}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1 flex-wrap">
-                      {user.groups.map((group) => (
-                        <Badge key={group} variant="outline" className="text-xs">
-                          {group}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Change Role</DropdownMenuItem>
-                        {user.status === "Pending" && (
-                          <DropdownMenuItem>Resend Invite</DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem className="text-destructive">
-                          Remove
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {loading ? (
+            <div className="p-8 text-center text-muted-foreground">
+              Завантаження...
+            </div>
+          ) : filteredStaff.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              Користувачів не знайдено
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Користувач</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Роль</TableHead>
+                  <TableHead>Групи</TableHead>
+                  <TableHead className="text-right">Дії</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredStaff.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            {getInitials(user.first_name || '', user.last_name || '')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">
+                          {user.first_name} {user.last_name}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                    <TableCell>{getRoleBadge(user.role)}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
+                        {user.groups.map((group, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {group}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            onClick={() => handleRemoveMember(user.id)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Видалити
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
