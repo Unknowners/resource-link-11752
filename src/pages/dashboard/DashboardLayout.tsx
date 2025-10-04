@@ -21,11 +21,7 @@ import {
 const navigation = [
   { name: "Огляд", href: "/app", icon: LayoutDashboard },
   { name: "Ресурси", href: "/app/resources", icon: FolderOpen },
-  { name: "Групи", href: "/app/groups", icon: Users },
-  { name: "Команда", href: "/app/staff", icon: UserCog },
-  { name: "Інтеграції", href: "/app/integrations", icon: Link2 },
-  { name: "Аудит-лог", href: "/app/audit", icon: FileText },
-  { name: "Налаштування", href: "/app/settings", icon: Settings },
+  { name: "FAQ & Q&A", href: "/app/faq", icon: FileText },
 ];
 
 export default function DashboardLayout() {

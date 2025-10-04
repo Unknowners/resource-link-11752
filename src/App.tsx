@@ -30,6 +30,7 @@ import Search from "./pages/dashboard/Search";
 import Audit from "./pages/dashboard/Audit";
 import DashboardSettings from "./pages/dashboard/Settings";
 import Profile from "./pages/dashboard/Profile";
+import FAQ from "./pages/dashboard/FAQ";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminOrgs from "./pages/admin/AdminOrgs";
 import AdminOrgDetail from "./pages/admin/AdminOrgDetail";
@@ -69,17 +70,20 @@ const App = () => (
           {/* Organization Portal (/app) */}
           <Route path="/app" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
             <Route index element={<Overview />} />
+            <Route path="resources" element={<Resources />} />
+            <Route path="resources/:id" element={<ResourceDetail />} />
+            <Route path="faq" element={<FAQ />} />
+            <Route path="profile" element={<Profile />} />
+            
+            {/* Legacy routes kept for backwards compatibility */}
             <Route path="staff" element={<Staff />} />
             <Route path="groups" element={<Groups />} />
             <Route path="groups/:id" element={<GroupDetail />} />
-            <Route path="resources" element={<Resources />} />
-            <Route path="resources/:id" element={<ResourceDetail />} />
             <Route path="integrations" element={<Integrations />} />
             <Route path="access-matrix" element={<AccessMatrix />} />
             <Route path="search" element={<Search />} />
             <Route path="audit" element={<Audit />} />
             <Route path="settings" element={<DashboardSettings />} />
-            <Route path="profile" element={<Profile />} />
           </Route>
 
           {/* Super Admin Console (/admin) */}

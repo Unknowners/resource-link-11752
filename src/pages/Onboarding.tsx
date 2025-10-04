@@ -2,20 +2,63 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { 
   CheckCircle2, 
-  Plug, 
-  Users, 
-  FolderOpen, 
+  Code2,
+  Database,
+  BarChart3,
+  Lightbulb,
+  TrendingUp,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  ArrowLeft
 } from "lucide-react";
+import RoleDocumentation from "@/components/onboarding/RoleDocumentation";
+
+const roles = [
+  { 
+    id: "frontend", 
+    name: "Frontend Developer", 
+    icon: Code2,
+    color: "from-blue-500 to-cyan-500",
+    description: "Розробка інтерфейсів на React, TypeScript"
+  },
+  { 
+    id: "backend", 
+    name: "Backend Developer", 
+    icon: Database,
+    color: "from-green-500 to-emerald-500",
+    description: "API, бази даних, серверна логіка"
+  },
+  { 
+    id: "analyst", 
+    name: "Data Analyst", 
+    icon: BarChart3,
+    color: "from-purple-500 to-pink-500",
+    description: "SQL, Python, аналітика даних"
+  },
+  { 
+    id: "product", 
+    name: "Product Manager", 
+    icon: Lightbulb,
+    color: "from-orange-500 to-red-500",
+    description: "Roadmap, метрики, UX дослідження"
+  },
+  { 
+    id: "marketing", 
+    name: "Marketing Specialist", 
+    icon: TrendingUp,
+    color: "from-pink-500 to-rose-500",
+    description: "Performance маркетинг, UA, креативи"
+  },
+];
 
 export default function Onboarding() {
   const [step, setStep] = useState(1);
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const navigate = useNavigate();
-  const totalSteps = 4;
+  const totalSteps = 3;
   const progress = (step / totalSteps) * 100;
 
   const handleNext = () => {
@@ -24,6 +67,17 @@ export default function Onboarding() {
     } else {
       navigate("/app");
     }
+  };
+
+  const handleBack = () => {
+    if (step > 1) {
+      setStep(step - 1);
+    }
+  };
+
+  const handleRoleSelect = (roleId: string) => {
+    setSelectedRole(roleId);
+    setTimeout(() => handleNext(), 300);
   };
 
   const handleSkip = () => {
@@ -68,19 +122,38 @@ export default function Onboarding() {
                 <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center mb-4">
                   <CheckCircle2 className="h-7 w-7 text-white" />
                 </div>
-                <CardTitle className="text-2xl">Email підтверджено</CardTitle>
+                <CardTitle className="text-2xl">Вітаємо в OnboardAI!</CardTitle>
                 <CardDescription className="text-base">
-                  Вашу організацію успішно створено
+                  Ваш персональний помічник для швидкої адаптації в команді
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="p-6 bg-secondary/50 rounded-xl">
-                  <p className="font-semibold mb-2">Demo Organization</p>
-                  <p className="text-sm text-muted-foreground">admin@demo.com</p>
+                <div className="p-6 bg-gradient-to-br from-primary/10 to-accent/10 rounded-xl border-2 border-primary/20">
+                  <h3 className="font-semibold text-lg mb-3">Що вас чекає:</h3>
+                  <ul className="space-y-3">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Документація по вашій професії з покроковим планом</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">FAQ з відповідями на найчастіші питання</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Q&A чат для швидких відповідей від AI та команди</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Доступ до всіх ресурсів та інтеграцій компанії</span>
+                    </li>
+                  </ul>
                 </div>
-                <p className="text-muted-foreground">
-                  Тепер давайте підключимо ваші робочі інструменти та запросимо команду.
-                </p>
+                <div className="bg-secondary/50 p-4 rounded-xl">
+                  <p className="text-sm">
+                    <strong>Мета OnboardAI:</strong> Скоротити час вашої адаптації та зробити процес навчання структурованим і простим.
+                  </p>
+                </div>
               </CardContent>
             </>
           )}
@@ -88,90 +161,75 @@ export default function Onboarding() {
           {step === 2 && (
             <>
               <CardHeader>
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-4">
-                  <Plug className="h-7 w-7 text-white" />
-                </div>
-                <CardTitle className="text-2xl">Підключіть інтеграції</CardTitle>
+                <CardTitle className="text-2xl">Оберіть вашу професію</CardTitle>
                 <CardDescription className="text-base">
-                  Оберіть сервіси, які використовує ваша команда
+                  Ми підготували персоналізовану документацію для кожної ролі
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {["Jira", "Confluence", "Notion", "Google Drive"].map((service) => (
-                  <div key={service} className="flex items-center justify-between p-4 border-2 rounded-xl hover:border-primary transition-colors">
-                    <span className="font-medium">{service}</span>
-                    <Button variant="outline">Підключити</Button>
-                  </div>
-                ))}
-                <p className="text-sm text-muted-foreground mt-4">
-                  Ви зможете підключити більше інтеграцій пізніше
+              <CardContent>
+                <div className="grid gap-4">
+                  {roles.map((role) => {
+                    const Icon = role.icon;
+                    return (
+                      <button
+                        key={role.id}
+                        onClick={() => handleRoleSelect(role.id)}
+                        className={`p-6 border-2 rounded-xl text-left transition-all hover:scale-[1.02] hover:shadow-lg ${
+                          selectedRole === role.id 
+                            ? 'border-primary bg-primary/5' 
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${role.color} flex items-center justify-center flex-shrink-0`}>
+                            <Icon className="h-6 w-6 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg mb-1">{role.name}</h3>
+                            <p className="text-sm text-muted-foreground">{role.description}</p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-sm text-muted-foreground mt-6 text-center">
+                  Ви завжди зможете переглянути документацію для інших ролей
                 </p>
               </CardContent>
             </>
           )}
 
-          {step === 3 && (
+          {step === 3 && selectedRole && (
             <>
               <CardHeader>
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mb-4">
-                  <Users className="h-7 w-7 text-white" />
-                </div>
-                <CardTitle className="text-2xl">Запросіть команду</CardTitle>
+                <CardTitle className="text-2xl">Ваш план онбордингу</CardTitle>
                 <CardDescription className="text-base">
-                  Додайте співробітників до вашої організації
+                  Персоналізована документація для {roles.find(r => r.id === selectedRole)?.name}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="p-6 border-2 border-dashed rounded-xl text-center">
-                    <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground mb-4">
-                      Запросіть членів команди через email
-                    </p>
-                    <Button>Запросити користувачів</Button>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Або імпортуйте користувачів пізніше через CSV файл
-                </p>
-              </CardContent>
-            </>
-          )}
-
-          {step === 4 && (
-            <>
-              <CardHeader>
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mb-4">
-                  <FolderOpen className="h-7 w-7 text-white" />
-                </div>
-                <CardTitle className="text-2xl">Створіть групи</CardTitle>
-                <CardDescription className="text-base">
-                  Організуйте команду та налаштуйте доступи до ресурсів
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="p-6 border-2 border-dashed rounded-xl text-center">
-                  <FolderOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground mb-4">
-                    Групи допомагають організувати доступи до проектів та документів
-                  </p>
-                  <Button>Створити першу групу</Button>
-                </div>
-                <div className="bg-primary/5 p-4 rounded-xl">
-                  <p className="text-sm">
-                    <strong>Порада:</strong> Створюйте групи на основі відділів або проектів для легшого управління доступами
-                  </p>
-                </div>
+              <CardContent className="max-h-[60vh] overflow-y-auto">
+                <RoleDocumentation role={selectedRole} />
               </CardContent>
             </>
           )}
 
           <div className="p-6 border-t flex justify-between">
-            <Button variant="ghost" onClick={handleSkip}>
-              Пропустити
+            <Button 
+              variant="ghost" 
+              onClick={step === 1 ? handleSkip : handleBack}
+            >
+              {step === 1 ? (
+                "Пропустити"
+              ) : (
+                <>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Назад
+                </>
+              )}
             </Button>
             <Button onClick={handleNext}>
-              {step === totalSteps ? "Завершити" : "Далі"}
+              {step === totalSteps ? "Почати роботу" : "Далі"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
