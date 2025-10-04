@@ -52,9 +52,7 @@ Deno.serve(async (req) => {
 
     // Обмінюємо код на токени
     // redirect_uri повинен співпадати з тим, який використовувався при авторизації
-    const origin = req.headers.get('origin') || undefined;
-    const fallbackUri = origin ? `${origin}/app/integrations` : 'https://documinds.online/app/integrations';
-    const redirectUri = redirect_uri || integration.config?.redirect_uri || fallbackUri;
+    const redirectUri = integration.config?.redirect_uri || 'https://documinds.online/app/integrations';
     console.log('Using redirect_uri for token exchange:', redirectUri);
     
     const tokenResponse = await fetch(integration.oauth_token_url, {

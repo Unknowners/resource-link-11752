@@ -291,7 +291,7 @@ export default function Integrations() {
       }
 
       try {
-        const redirectUri = `${window.location.origin}/app/integrations`;
+        const redirectUri = 'https://documinds.online/app/integrations';
         
         const insertData: any = {
           organization_id: organizationId,
@@ -358,7 +358,7 @@ export default function Integrations() {
     try {
       const loadingToast = toast.loading('Обробка авторизації...');
       
-      const redirectUri = `${window.location.origin}/app/integrations`;
+      const redirectUri = 'https://documinds.online/app/integrations';
       const { data, error } = await supabase.functions.invoke('oauth-callback', {
         body: {
           integration_id: integrationId,
@@ -458,7 +458,7 @@ export default function Integrations() {
     sessionStorage.setItem('oauth_integration_id', integration.id);
 
     // Формуємо URL для OAuth авторизації
-    const redirectUri = `${window.location.origin}/app/integrations`;
+    const redirectUri = 'https://documinds.online/app/integrations';
     const authUrl = new URL(integration.oauth_authorize_url);
     authUrl.searchParams.append('client_id', integration.oauth_client_id);
     authUrl.searchParams.append('redirect_uri', redirectUri);
