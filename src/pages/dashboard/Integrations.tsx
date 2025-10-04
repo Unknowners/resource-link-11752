@@ -468,6 +468,15 @@ export default function Integrations() {
       authUrl.searchParams.append('scope', integration.oauth_scopes);
     }
 
+    // Зберігаємо redirect_uri в конфіг інтеграції, щоб edge function міг використати той самий URI
+    const { error: cfgErr } = await supabase
+      .from('integrations')
+      .update({ config: { redirect_uri: redirectUri } })
+      .eq('id', integration.id);
+    if (cfgErr) {
+      console.warn('Failed to persist redirect_uri', cfgErr);
+    }
+
     console.log('Redirecting to OAuth:', authUrl.toString());
     toast.info('Переадресація на сторінку авторизації...');
     
