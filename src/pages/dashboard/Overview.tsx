@@ -33,15 +33,27 @@ export default function Overview() {
   const loadData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      console.log('Overview - Current user:', user?.id);
+      
+      if (!user) {
+        console.log('Overview - No user found');
+        setLoading(false);
+        return;
+      }
 
-      const { data: member } = await supabase
+      const { data: member, error: memberError } = await supabase
         .from('organization_members')
         .select('organization_id')
         .eq('user_id', user.id)
         .single();
 
-      if (!member) return;
+      console.log('Overview - Organization member:', member, 'Error:', memberError);
+
+      if (!member) {
+        console.log('Overview - No organization found for user');
+        setLoading(false);
+        return;
+      }
 
       // Load stats
       const [resourcesData, usersData, integrationsData, groupsData] = await Promise.all([
@@ -51,7 +63,16 @@ export default function Overview() {
         supabase.from('groups').select('id', { count: 'exact', head: true }).eq('organization_id', member.organization_id),
       ]);
 
+      console.log('Overview - Loading stats for org:', member.organization_id);
+
       setStats({
+        resources: resourcesData.count || 0,
+        users: usersData.count || 0,
+        integrations: integrationsData.count || 0,
+        groups: groupsData.count || 0,
+      });
+
+      console.log('Overview - Stats loaded:', {
         resources: resourcesData.count || 0,
         users: usersData.count || 0,
         integrations: integrationsData.count || 0,
@@ -76,6 +97,7 @@ export default function Overview() {
       }));
 
       setActivity(formattedLogs);
+      console.log('Overview - Activity logs loaded:', formattedLogs.length, 'items');
     } catch (error) {
       console.error('Error loading overview data:', error);
     } finally {
