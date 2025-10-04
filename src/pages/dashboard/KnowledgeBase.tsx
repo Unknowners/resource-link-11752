@@ -25,16 +25,100 @@ interface Message {
 }
 
 export default function KnowledgeBase() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "Привіт! Я ваш AI-асистент. Задайте мені будь-яке питання про вашу компанію, процеси, інструменти чи документацію.",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    initializeConversation();
+  }, []);
+
+  const initializeConversation = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: member } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!member) return;
+      setOrganizationId(member.organization_id);
+
+      // Get or create conversation
+      const { data: existingConversation } = await supabase
+        .from('chat_conversations')
+        .select('id')
+        .eq('organization_id', member.organization_id)
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let convId: string;
+
+      if (existingConversation) {
+        convId = existingConversation.id;
+        setConversationId(convId);
+
+        // Load messages
+        const { data: messagesData } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('conversation_id', convId)
+          .order('created_at', { ascending: true });
+
+        if (messagesData && messagesData.length > 0) {
+          const loadedMessages: Message[] = messagesData.map(msg => ({
+            role: msg.role as "user" | "assistant",
+            content: msg.content,
+            sources: msg.sources ? (msg.sources as any) : undefined,
+          }));
+          setMessages(loadedMessages);
+        } else {
+          // No messages, show welcome
+          setMessages([{
+            role: "assistant",
+            content: "Привіт! Я ваш AI-асистент. Задайте мені будь-яке питання про вашу компанію, процеси, інструменти чи документацію.",
+          }]);
+        }
+      } else {
+        // Create new conversation
+        const { data: newConversation, error } = await supabase
+          .from('chat_conversations')
+          .insert({
+            organization_id: member.organization_id,
+            user_id: user.id,
+            title: 'Нова розмова'
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        
+        convId = newConversation.id;
+        setConversationId(convId);
+
+        // Show welcome message (don't save it)
+        setMessages([{
+          role: "assistant",
+          content: "Привіт! Я ваш AI-асистент. Задайте мені будь-яке питання про вашу компанію, процеси, інструменти чи документацію.",
+        }]);
+      }
+    } catch (error) {
+      console.error('Error initializing conversation:', error);
+      toast.error("Помилка ініціалізації розмови");
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -45,9 +129,10 @@ export default function KnowledgeBase() {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || !conversationId) return;
 
-    const userMessage: Message = { role: "user", content: input };
+    const userMessageContent = input;
+    const userMessage: Message = { role: "user", content: userMessageContent };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
@@ -61,9 +146,22 @@ export default function KnowledgeBase() {
         return;
       }
 
+      // Save user message
+      await supabase.from('chat_messages').insert({
+        conversation_id: conversationId,
+        role: 'user',
+        content: userMessageContent,
+      });
+
+      // Update conversation timestamp
+      await supabase
+        .from('chat_conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', conversationId);
+
       const { data, error } = await supabase.functions.invoke('knowledge-qa', {
         body: {
-          question: input,
+          question: userMessageContent,
           userId: user.id,
         }
       });
@@ -78,6 +176,14 @@ export default function KnowledgeBase() {
       };
       
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Save assistant message
+      await supabase.from('chat_messages').insert({
+        conversation_id: conversationId,
+        role: 'assistant',
+        content: data.answer,
+        sources: data.sources,
+      });
     } catch (error: any) {
       console.error('Error calling knowledge-qa:', error);
       
@@ -126,8 +232,13 @@ export default function KnowledgeBase() {
       {/* Chat Area */}
       <Card className="flex-1 flex flex-col overflow-hidden border-2">
         <ScrollArea className="flex-1 p-4 sm:p-6" ref={scrollAreaRef}>
-          <div className="space-y-6 max-w-4xl mx-auto">
-            {messages.map((message, index) => (
+          {loadingHistory ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="space-y-6 max-w-4xl mx-auto">
+              {messages.map((message, index) => (
               <div
                 key={index}
                 className={`flex gap-3 ${
@@ -177,19 +288,20 @@ export default function KnowledgeBase() {
                   </div>
                 )}
               </div>
-            ))}
-            {isLoading && (
-              <div className="flex gap-3 justify-start">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="h-4 w-4 text-white" />
+              ))}
+              {isLoading && (
+                <div className="flex gap-3 justify-start">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="rounded-2xl px-4 py-3 bg-secondary">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
                 </div>
-                <div className="rounded-2xl px-4 py-3 bg-secondary">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
         </ScrollArea>
 
         {/* Input Area */}
