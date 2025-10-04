@@ -5,9 +5,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, RefreshCw, Plus, Trash2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { CheckCircle2, XCircle, RefreshCw, Plus, Trash2, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { OAuthPresets, OAuthPreset } from "@/components/dashboard/OAuthPresets";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Integration {
   id: string;
@@ -17,6 +20,16 @@ interface Integration {
   last_sync_at: string | null;
   error_message: string | null;
   resource_count?: number;
+  oauth_client_id?: string;
+  oauth_authorize_url?: string;
+  oauth_scopes?: string;
+}
+
+interface IntegrationCredential {
+  id: string;
+  integration_id: string;
+  user_id: string;
+  token_expires_at: string | null;
 }
 
 export default function Integrations() {
@@ -24,10 +37,17 @@ export default function Integrations() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [userCredentials, setUserCredentials] = useState<Map<string, IntegrationCredential>>(new Map());
   const [formData, setFormData] = useState({
     name: "",
     type: "",
+    oauth_client_id: "",
+    oauth_client_secret: "",
+    oauth_authorize_url: "",
+    oauth_token_url: "",
+    oauth_scopes: "",
   });
+  const [selectedPreset, setSelectedPreset] = useState<OAuthPreset | null>(null);
 
   useEffect(() => {
     loadIntegrations();
@@ -68,12 +88,37 @@ export default function Integrations() {
       }));
 
       setIntegrations(integrationsWithCounts);
+
+      // Завантажуємо credentials користувача
+      const { data: credentialsData } = await supabase
+        .from('integration_credentials')
+        .select('*')
+        .eq('user_id', user.id);
+
+      const credMap = new Map<string, IntegrationCredential>();
+      (credentialsData || []).forEach(cred => {
+        credMap.set(cred.integration_id, cred);
+      });
+      setUserCredentials(credMap);
     } catch (error) {
       console.error('Error loading integrations:', error);
       toast.error("Помилка завантаження інтеграцій");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePresetSelect = (preset: OAuthPreset) => {
+    setSelectedPreset(preset);
+    setFormData({
+      name: preset.name,
+      type: preset.type,
+      oauth_client_id: "",
+      oauth_client_secret: "",
+      oauth_authorize_url: preset.oauth_authorize_url,
+      oauth_token_url: preset.oauth_token_url,
+      oauth_scopes: preset.oauth_scopes,
+    });
   };
 
   const handleCreateIntegration = async () => {
@@ -87,13 +132,27 @@ export default function Integrations() {
           name: formData.name,
           type: formData.type,
           status: 'connected',
+          oauth_client_id: formData.oauth_client_id || null,
+          oauth_client_secret: formData.oauth_client_secret || null,
+          oauth_authorize_url: formData.oauth_authorize_url || null,
+          oauth_token_url: formData.oauth_token_url || null,
+          oauth_scopes: formData.oauth_scopes || null,
         });
 
       if (error) throw error;
 
       toast.success("Інтеграцію створено");
       setIsDialogOpen(false);
-      setFormData({ name: "", type: "" });
+      setFormData({ 
+        name: "", 
+        type: "",
+        oauth_client_id: "",
+        oauth_client_secret: "",
+        oauth_authorize_url: "",
+        oauth_token_url: "",
+        oauth_scopes: "",
+      });
+      setSelectedPreset(null);
       loadIntegrations();
     } catch (error) {
       console.error('Error creating integration:', error);
@@ -116,6 +175,53 @@ export default function Integrations() {
       console.error('Error deleting integration:', error);
       toast.error("Помилка видалення інтеграції");
     }
+  };
+
+  const handleConnectIntegration = async (integration: Integration) => {
+    if (!integration.oauth_authorize_url || !integration.oauth_client_id) {
+      toast.error("OAuth не налаштовано для цієї інтеграції");
+      return;
+    }
+
+    // Генеруємо state для захисту від CSRF
+    const state = `${integration.id}_${Date.now()}`;
+    sessionStorage.setItem('oauth_state', state);
+    sessionStorage.setItem('oauth_integration_id', integration.id);
+
+    // Формуємо URL для OAuth авторизації
+    const redirectUri = `${window.location.origin}/dashboard/integrations`;
+    const authUrl = new URL(integration.oauth_authorize_url);
+    authUrl.searchParams.append('client_id', integration.oauth_client_id);
+    authUrl.searchParams.append('redirect_uri', redirectUri);
+    authUrl.searchParams.append('response_type', 'code');
+    authUrl.searchParams.append('state', state);
+    if (integration.oauth_scopes) {
+      authUrl.searchParams.append('scope', integration.oauth_scopes);
+    }
+
+    console.log('Redirecting to OAuth:', authUrl.toString());
+    window.location.href = authUrl.toString();
+  };
+
+  const handleDisconnectIntegration = async (integrationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('integration_credentials')
+        .delete()
+        .eq('integration_id', integrationId);
+
+      if (error) throw error;
+
+      toast.success("Інтеграцію відключено");
+      loadIntegrations();
+    } catch (error) {
+      console.error('Error disconnecting:', error);
+      toast.error("Помилка відключення");
+    }
+  };
+
+  const isUserConnected = (integrationId: string): boolean => {
+    return userCredentials.has(integrationId);
   };
 
   const getStatusBadge = (status: string) => {
@@ -155,40 +261,105 @@ export default function Integrations() {
               Додати інтеграцію
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Додати нову інтеграцію</DialogTitle>
               <DialogDescription>
-                Введіть дані для нової інтеграції
+                Оберіть готовий шаблон або створіть власну
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Назва</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Jira"
-                />
+            
+            {!selectedPreset ? (
+              <OAuthPresets onSelect={handlePresetSelect} />
+            ) : (
+              <div className="space-y-4">
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="font-semibold mb-2">Інструкції для {selectedPreset.name}:</div>
+                    <div className="text-sm whitespace-pre-line">{selectedPreset.instructions}</div>
+                  </AlertDescription>
+                </Alert>
+
+                <div>
+                  <Label htmlFor="name">Назва інтеграції</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="oauth_client_id">Client ID *</Label>
+                  <Input
+                    id="oauth_client_id"
+                    value={formData.oauth_client_id}
+                    onChange={(e) => setFormData({ ...formData, oauth_client_id: e.target.value })}
+                    placeholder="Отримайте з консолі розробника"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="oauth_client_secret">Client Secret *</Label>
+                  <Input
+                    id="oauth_client_secret"
+                    type="password"
+                    value={formData.oauth_client_secret}
+                    onChange={(e) => setFormData({ ...formData, oauth_client_secret: e.target.value })}
+                    placeholder="Отримайте з консолі розробника"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="oauth_authorize_url">Authorization URL</Label>
+                  <Input
+                    id="oauth_authorize_url"
+                    value={formData.oauth_authorize_url}
+                    onChange={(e) => setFormData({ ...formData, oauth_authorize_url: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="oauth_token_url">Token URL</Label>
+                  <Input
+                    id="oauth_token_url"
+                    value={formData.oauth_token_url}
+                    onChange={(e) => setFormData({ ...formData, oauth_token_url: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="oauth_scopes">OAuth Scopes</Label>
+                  <Textarea
+                    id="oauth_scopes"
+                    value={formData.oauth_scopes}
+                    onChange={(e) => setFormData({ ...formData, oauth_scopes: e.target.value })}
+                    placeholder="read:user write:data"
+                    rows={2}
+                  />
+                </div>
               </div>
-              <div>
-                <Label htmlFor="type">Тип</Label>
-                <Input
-                  id="type"
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  placeholder="jira"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Скасувати
+            )}
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => {
+                if (selectedPreset) {
+                  setSelectedPreset(null);
+                } else {
+                  setIsDialogOpen(false);
+                }
+              }}>
+                {selectedPreset ? 'Назад' : 'Скасувати'}
               </Button>
-              <Button onClick={handleCreateIntegration} disabled={!formData.name || !formData.type}>
-                Додати
-              </Button>
+              {selectedPreset && (
+                <Button 
+                  onClick={handleCreateIntegration} 
+                  disabled={!formData.name || !formData.oauth_client_id || !formData.oauth_client_secret}
+                >
+                  Створити інтеграцію
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -236,29 +407,54 @@ export default function Integrations() {
                 </div>
               </CardHeader>
               <CardContent>
-                {integration.status === "error" ? (
-                  <div className="space-y-4">
-                    <p className="text-sm text-destructive">{integration.error_message}</p>
-                    <Button variant="outline" className="w-full">
-                      Перепідключити
-                    </Button>
+                <div className="space-y-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Остання синхронізація</span>
+                    <span className="font-medium">
+                      {integration.last_sync_at 
+                        ? new Date(integration.last_sync_at).toLocaleString('uk-UA')
+                        : 'Ніколи'}
+                    </span>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Остання синхронізація</span>
-                      <span className="font-medium">
-                        {integration.last_sync_at 
-                          ? new Date(integration.last_sync_at).toLocaleString('uk-UA')
-                          : 'Ніколи'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Ресурсів</span>
-                      <span className="font-medium">{integration.resource_count}</span>
-                    </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Ресурсів</span>
+                    <span className="font-medium">{integration.resource_count}</span>
                   </div>
-                )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Ваш статус</span>
+                    {isUserConnected(integration.id) ? (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        <CheckCircle2 className="mr-1 h-3 w-3" />
+                        Підключено
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Не підключено</Badge>
+                    )}
+                  </div>
+                  
+                  {integration.oauth_authorize_url ? (
+                    isUserConnected(integration.id) ? (
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => handleDisconnectIntegration(integration.id)}
+                      >
+                        Відключити мій акаунт
+                      </Button>
+                    ) : (
+                      <Button 
+                        className="w-full"
+                        onClick={() => handleConnectIntegration(integration)}
+                      >
+                        Підключити мій акаунт
+                      </Button>
+                    )
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center">
+                      OAuth не налаштовано адміністратором
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}
