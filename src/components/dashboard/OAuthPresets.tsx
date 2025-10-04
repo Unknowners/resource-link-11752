@@ -16,12 +16,10 @@ const getRedirectUrl = () => {
 
 export const OAUTH_PRESETS: OAuthPreset[] = [
   {
-    name: "Atlassian - API Token (рекомендовано)",
+    name: "Atlassian (Jira, Confluence)",
     type: "atlassian",
     auth_type: "api_token",
-    instructions: `🔑 Простий спосіб - API Token + Email:
-
-1. Перейдіть на https://id.atlassian.com/manage-profile/security
+    instructions: `1. Перейдіть на https://id.atlassian.com/manage-profile/security
 2. Натисніть "Create and manage API tokens"
 3. "Create API token" → Вкажіть назву → "Create"
 4. Скопіюйте токен (показується лише раз!)
@@ -29,24 +27,7 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
    • Email вашого Atlassian акаунту
    • API Token який ви щойно створили
 
-Це дає доступ до всіх Jira + Confluence ресурсів вашого акаунту.`
-  },
-  {
-    name: "Atlassian - OAuth 2.0 (для додатків)",
-    type: "atlassian",
-    auth_type: "oauth",
-    oauth_authorize_url: "https://auth.atlassian.com/authorize",
-    oauth_token_url: "https://auth.atlassian.com/oauth/token",
-    oauth_scopes: "read:jira-work read:jira-user read:servicedesk-request read:servicemanagement-insight-objects read:confluence-space.summary read:confluence-props read:confluence-content.all read:confluence-content.summary search:confluence read:confluence-user read:confluence-groups offline_access",
-    instructions: `⚙️ Складний спосіб - OAuth 2.0 (для організаційних додатків):
-
-1. Створіть OAuth 2.0 app на https://developer.atlassian.com/console/myapps
-2. "Create" → "OAuth 2.0 integration"
-3. Callback URL: ${getRedirectUrl()}
-4. Permissions → Configure всі необхідні scopes
-5. Client ID та Secret з Settings
-
-Використовуйте тільки якщо вам потрібен app-to-app доступ.`
+Дає доступ до всіх Jira + Confluence ресурсів вашого акаунту.`
   },
   {
     name: "Google Drive",
