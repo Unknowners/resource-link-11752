@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,14 +6,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Lightbulb, Plus, Clock, AlertCircle, CheckCircle2, Trash2 } from "lucide-react";
+import { Lightbulb, Plus, Clock, AlertCircle, CheckCircle2, Trash2, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { uk } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Idea {
   id: string;
   title: string;
   content: string;
+  user_id: string;
   author: string;
   status: "active" | "completed" | "outdated";
   createdAt: Date;
@@ -21,52 +24,160 @@ interface Idea {
 }
 
 export default function TeamMemory() {
-  const [ideas, setIdeas] = useState<Idea[]>([
-    {
-      id: "1",
-      title: "Автоматизація звітів",
-      content: "Можна автоматизувати створення щотижневих звітів через скрипти",
-      author: "Олена К.",
-      status: "active",
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-      suggestion: "Це пасує до вашої поточної теми!"
-    },
-    {
-      id: "2",
-      title: "Нова фіча для клієнтів",
-      content: "Додати можливість експорту даних у різних форматах",
-      author: "Максим П.",
-      status: "active",
-      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-    },
-    {
-      id: "3",
-      title: "Оптимізація бази даних",
-      content: "Треба переглянути індекси у головній таблиці",
-      author: "Ірина Л.",
-      status: "completed",
-      createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-    },
-  ]);
-
+  const [ideas, setIdeas] = useState<Idea[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newIdea, setNewIdea] = useState({ title: "", content: "" });
+  const [loading, setLoading] = useState(true);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const handleAddIdea = () => {
+  useEffect(() => {
+    loadIdeas();
+  }, []);
+
+  const loadIdeas = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get user's organization
+      const { data: member } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!member) return;
+      setOrganizationId(member.organization_id);
+
+      // Get all ideas for the organization
+      const { data: ideasData, error } = await supabase
+        .from('team_ideas')
+        .select(`
+          *,
+          profiles!team_ideas_user_id_fkey (
+            first_name,
+            last_name
+          )
+        `)
+        .eq('organization_id', member.organization_id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedIdeas: Idea[] = (ideasData || []).map((idea: any) => ({
+        id: idea.id,
+        title: idea.title,
+        content: idea.content,
+        user_id: idea.user_id,
+        author: idea.profiles 
+          ? `${idea.profiles.first_name || ''} ${idea.profiles.last_name || ''}`.trim() || 'Користувач'
+          : 'Користувач',
+        status: idea.status,
+        createdAt: new Date(idea.created_at),
+        suggestion: idea.suggestion,
+      }));
+
+      setIdeas(formattedIdeas);
+    } catch (error) {
+      console.error('Error loading ideas:', error);
+      toast({
+        title: "Помилка",
+        description: "Не вдалося завантажити ідеї",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddIdea = async () => {
     if (!newIdea.title.trim() || !newIdea.content.trim()) return;
+    if (!organizationId) return;
 
-    const idea: Idea = {
-      id: Date.now().toString(),
-      title: newIdea.title,
-      content: newIdea.content,
-      author: "Ви",
-      status: "active",
-      createdAt: new Date(),
-    };
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    setIdeas([idea, ...ideas]);
-    setNewIdea({ title: "", content: "" });
-    setIsDialogOpen(false);
+      const { error } = await supabase
+        .from('team_ideas')
+        .insert({
+          organization_id: organizationId,
+          user_id: user.id,
+          title: newIdea.title,
+          content: newIdea.content,
+          status: 'active',
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Успішно",
+        description: "Ідею додано",
+      });
+
+      setNewIdea({ title: "", content: "" });
+      setIsDialogOpen(false);
+      loadIdeas();
+    } catch (error) {
+      console.error('Error adding idea:', error);
+      toast({
+        title: "Помилка",
+        description: "Не вдалося додати ідею",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteIdea = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('team_ideas')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Успішно",
+        description: "Ідею видалено",
+      });
+
+      loadIdeas();
+    } catch (error) {
+      console.error('Error deleting idea:', error);
+      toast({
+        title: "Помилка",
+        description: "Не вдалося видалити ідею",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, status: "active" | "completed" | "outdated") => {
+    try {
+      const { error } = await supabase
+        .from('team_ideas')
+        .update({ status })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Успішно",
+        description: "Статус оновлено",
+      });
+
+      loadIdeas();
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast({
+        title: "Помилка",
+        description: "Не вдалося оновити статус",
+        variant: "destructive",
+      });
+    }
   };
 
   const getStatusBadge = (status: Idea["status"]) => {
@@ -137,8 +248,18 @@ export default function TeamMemory() {
       </div>
 
       {/* Ideas Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {ideas.map((idea) => (
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : ideas.length === 0 ? (
+        <Card className="p-12 text-center">
+          <Lightbulb className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground">Поки що немає ідей. Додайте першу!</p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {ideas.map((idea) => (
           <Card
             key={idea.id}
             className={`border-2 hover:shadow-lg transition-shadow ${
@@ -148,7 +269,12 @@ export default function TeamMemory() {
             <CardHeader>
               <div className="flex items-start justify-between gap-2 mb-2">
                 <CardTitle className="text-base">{idea.title}</CardTitle>
-                <Button variant="ghost" size="icon" className="h-6 w-6">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6"
+                  onClick={() => handleDeleteIdea(idea.id)}
+                >
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
@@ -182,24 +308,50 @@ export default function TeamMemory() {
               <div className="flex gap-2">
                 {idea.status === "active" && (
                   <>
-                    <Button variant="outline" size="sm" className="flex-1">
-                      Допрацювати
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => handleUpdateStatus(idea.id, "completed")}
+                    >
+                      Завершити
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => handleUpdateStatus(idea.id, "outdated")}
+                    >
                       Архівувати
                     </Button>
                   </>
                 )}
                 {idea.status === "completed" && (
-                  <Button variant="outline" size="sm" className="w-full" disabled>
-                    Завершено
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => handleUpdateStatus(idea.id, "active")}
+                  >
+                    Відновити
+                  </Button>
+                )}
+                {idea.status === "outdated" && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => handleUpdateStatus(idea.id, "active")}
+                  >
+                    Відновити
                   </Button>
                 )}
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Stats */}
       <Card className="border-2">
