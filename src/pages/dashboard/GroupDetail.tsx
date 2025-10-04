@@ -95,7 +95,6 @@ export default function GroupDetail() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get organization
       const { data: orgMember } = await supabase
         .from('organization_members')
         .select('organization_id')
@@ -105,7 +104,6 @@ export default function GroupDetail() {
       if (!orgMember) return;
       setOrganizationId(orgMember.organization_id);
 
-      // Load group
       const { data: groupData } = await supabase
         .from('groups')
         .select('*')
@@ -114,7 +112,6 @@ export default function GroupDetail() {
       
       if (groupData) setGroup(groupData);
 
-      // Load group members
       const { data: groupMembersData } = await supabase
         .from('group_members')
         .select('user_id')
@@ -141,7 +138,6 @@ export default function GroupDetail() {
         setMembers([]);
       }
 
-      // Load group resources
       const { data: groupResourcesData } = await supabase
         .from('resource_permissions')
         .select('resource_id')
@@ -162,7 +158,6 @@ export default function GroupDetail() {
         setResources([]);
       }
 
-      // Load available members (org members not in group)
       const { data: orgMembers } = await supabase
         .from('organization_members')
         .select('user_id')
@@ -175,7 +170,6 @@ export default function GroupDetail() {
           .map((m) => m.user_id);
         
         if (availableUserIds.length > 0) {
-          // Get profiles for available users
           const { data: profilesData } = await supabase
             .from('profiles')
             .select('id, email, first_name, last_name')
@@ -197,7 +191,6 @@ export default function GroupDetail() {
         }
       }
 
-      // Load available resources (org resources not in group)
       const { data: allResources } = await supabase
         .from('resources')
         .select('*')
@@ -239,7 +232,6 @@ export default function GroupDetail() {
       console.error('Error adding member:', error);
       toast.error('Помилка додавання учасника');
     }
-  };
   };
 
   const handleRemoveMember = async (userId: string) => {
