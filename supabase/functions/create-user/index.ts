@@ -92,7 +92,25 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (createError) {
       console.error("Error creating user:", createError);
-      throw new Error(`Failed to create user: ${createError.message}`);
+      
+      // Handle specific error cases
+      const status = createError.status || 500;
+      let message = createError.message;
+      
+      if (createError.message?.includes("already been registered")) {
+        message = "Користувач з таким email вже існує";
+      }
+      
+      return new Response(
+        JSON.stringify({
+          error: message,
+          success: false,
+        }),
+        {
+          status: status,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
     }
 
     if (!newUser.user) {
@@ -130,13 +148,35 @@ const handler = async (req: Request): Promise<Response> => {
     );
   } catch (error: any) {
     console.error("Error in create-user function:", error);
+    
+    // Determine appropriate status code
+    let status = 500;
+    let message = error.message;
+    
+    if (error.message?.includes("No authorization header") || error.message?.includes("Unauthorized")) {
+      status = 401;
+      message = "Не авторизовано";
+    } else if (error.message?.includes("Organization not found")) {
+      status = 404;
+      message = "Організацію не знайдено";
+    } else if (error.message?.includes("Only organization owners")) {
+      status = 403;
+      message = "Тільки власники організації можуть створювати користувачів";
+    } else if (error.message?.includes("Missing required fields")) {
+      status = 400;
+      message = "Не всі обов'язкові поля заповнені";
+    } else if (error.message?.includes("Password must be at least")) {
+      status = 400;
+      message = "Пароль повинен містити мінімум 8 символів";
+    }
+    
     return new Response(
       JSON.stringify({
-        error: error.message,
+        error: message,
         success: false,
       }),
       {
-        status: 500,
+        status: status,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
