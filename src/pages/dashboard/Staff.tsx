@@ -45,7 +45,12 @@ export default function Staff() {
   const [editingStatus, setEditingStatus] = useState<string>("active");
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteFirstName, setInviteFirstName] = useState("");
+  const [inviteLastName, setInviteLastName] = useState("");
+  const [invitePassword, setInvitePassword] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
+  const [newPassword, setNewPassword] = useState("");
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const itemsPerPage = 10;
@@ -256,7 +261,40 @@ export default function Staff() {
       toast.success("Користувача оновлено");
       setIsEditDialogOpen(false);
       setEditingUser(null);
+      setShowPasswordReset(false);
+      setNewPassword("");
       loadStaff();
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast.error("Помилка оновлення користувача");
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!editingUser) return;
+
+    if (!newPassword || newPassword.length < 8) {
+      toast.error("Пароль повинен містити мінімум 8 символів");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke("reset-user-password", {
+        body: {
+          userId: editingUser.id,
+          newPassword: newPassword,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast.success("Пароль успішно змінено");
+      setShowPasswordReset(false);
+      setNewPassword("");
     } catch (error) {
       console.error('Error updating user:', error);
       toast.error("Помилка оновлення користувача");
@@ -274,56 +312,54 @@ export default function Staff() {
   };
 
   const handleInviteUser = async () => {
-    if (!organizationId || !inviteEmail) {
-      toast.error("Введіть email");
+    if (!organizationId) {
+      toast.error("Організація не знайдена");
+      return;
+    }
+
+    if (!inviteEmail || !inviteFirstName || !inviteLastName || !invitePassword) {
+      toast.error("Заповніть всі поля");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
+      toast.error("Введіть коректну email адресу");
+      return;
+    }
+
+    if (invitePassword.length < 8) {
+      toast.error("Пароль повинен містити мінімум 8 символів");
       return;
     }
 
     try {
-      // Check if user already exists in profiles
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', inviteEmail)
-        .maybeSingle();
-
-      if (!existingProfile) {
-        toast.error("Користувач з таким email не зареєстрований в системі");
-        return;
-      }
-
-      // Check if user is already a member
-      const { data: existingMember } = await supabase
-        .from('organization_members')
-        .select('id')
-        .eq('user_id', existingProfile.id)
-        .eq('organization_id', organizationId)
-        .maybeSingle();
-
-      if (existingMember) {
-        toast.error("Користувач вже є членом організації");
-        return;
-      }
-
-      // Add user to organization
-      const { error } = await supabase
-        .from('organization_members')
-        .insert({
-          user_id: existingProfile.id,
-          organization_id: organizationId,
-          role: inviteRole
-        });
+      const { data, error } = await supabase.functions.invoke("create-user", {
+        body: {
+          email: inviteEmail,
+          password: invitePassword,
+          firstName: inviteFirstName,
+          lastName: inviteLastName,
+          role: inviteRole,
+        },
+      });
 
       if (error) throw error;
 
-      toast.success("Користувача додано до організації");
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast.success("Користувача створено успішно");
       setIsInviteDialogOpen(false);
       setInviteEmail("");
+      setInviteFirstName("");
+      setInviteLastName("");
+      setInvitePassword("");
       setInviteRole("member");
       loadStaff();
-    } catch (error) {
-      console.error('Error inviting user:', error);
-      toast.error("Помилка додавання користувача");
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      toast.error(error.message || "Помилка створення користувача");
     }
   };
 
@@ -473,9 +509,9 @@ export default function Staff() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsInviteDialogOpen(true)}>
+          <Button onClick={() => setIsInviteDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Додати існуючого
+            Створити користувача
           </Button>
           {/* <InviteUserDialog /> */}
         </div>
@@ -622,24 +658,54 @@ export default function Staff() {
         )}
       </Card>
 
-      {/* Invite User Dialog */}
+      {/* Create User Dialog */}
       <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Запросити користувача</DialogTitle>
+            <DialogTitle>Створити користувача</DialogTitle>
             <DialogDescription>
-              Додайте існуючого користувача до вашої організації
+              Створіть нового користувача для вашої організації
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="firstName">Ім'я *</Label>
+              <Input
+                id="firstName"
+                type="text"
+                placeholder="Іван"
+                value={inviteFirstName}
+                onChange={(e) => setInviteFirstName(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="lastName">Прізвище *</Label>
+              <Input
+                id="lastName"
+                type="text"
+                placeholder="Іваненко"
+                value={inviteLastName}
+                onChange={(e) => setInviteLastName(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="user@example.com"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="password">Пароль * (мінімум 8 символів)</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={invitePassword}
+                onChange={(e) => setInvitePassword(e.target.value)}
               />
             </div>
             <div>
@@ -659,7 +725,7 @@ export default function Staff() {
                 Скасувати
               </Button>
               <Button onClick={handleInviteUser}>
-                Запросити
+                Створити
               </Button>
             </div>
           </div>
@@ -730,6 +796,36 @@ export default function Staff() {
                   ))
                 )}
               </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-base">Змінити пароль</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPasswordReset(!showPasswordReset)}
+                >
+                  {showPasswordReset ? "Скасувати" : "Змінити пароль"}
+                </Button>
+              </div>
+              {showPasswordReset && (
+                <div className="space-y-2">
+                  <Input
+                    type="password"
+                    placeholder="Новий пароль (мінімум 8 символів)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                  <Button
+                    onClick={handleResetPassword}
+                    className="w-full"
+                    variant="secondary"
+                  >
+                    Встановити новий пароль
+                  </Button>
+                </div>
+              )}
             </div>
             
             <div className="flex gap-2 justify-end">
