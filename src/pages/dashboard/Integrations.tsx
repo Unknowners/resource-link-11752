@@ -210,13 +210,20 @@ export default function Integrations() {
           oauth_authorize_url: formData.oauth_authorize_url, // зберігаємо site URL
         };
 
+        console.log('Creating integration with data:', insertData);
+
         const { data: newIntegration, error: insertError } = await supabase
           .from('integrations')
           .insert(insertData)
           .select()
           .single();
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Insert error:', insertError);
+          throw insertError;
+        }
+
+        console.log('Integration created:', newIntegration);
 
         // Ще раз валідуємо вже з правильним integration_id щоб записати credentials
         await handleValidateApiToken(
