@@ -10,12 +10,12 @@ import { toast } from "sonner";
 
 interface AuditLog {
   id: string;
-  created_at: string;
-  user_email: string | null;
   action: string;
   resource_type: string | null;
   resource_id: string | null;
+  created_at: string;
   details: any;
+  user_email: string | null;
 }
 
 export default function Audit() {
@@ -52,8 +52,8 @@ export default function Audit() {
 
       if (error) throw error;
 
-      // Get user emails
-      const userIds = [...new Set(logs?.map(log => log.user_id).filter(Boolean) || [])];
+      // Get user emails for each log
+      const userIds = [...new Set(logs?.map(log => log.user_id).filter(Boolean))];
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, email')
@@ -67,7 +67,7 @@ export default function Audit() {
       setEvents(logsWithEmails);
     } catch (error) {
       console.error('Error loading audit logs:', error);
-      toast.error("Помилка завантаження аудит-логів");
+      toast.error("Помилка завантаження логів");
     } finally {
       setLoading(false);
     }
@@ -90,53 +90,28 @@ export default function Audit() {
       "update": "bg-blue-50 text-blue-700 border-blue-200",
       "delete": "bg-red-50 text-red-700 border-red-200",
     };
+    
+    const labels: Record<string, string> = {
+      "create": "Створено",
+      "update": "Оновлено",
+      "delete": "Видалено",
+    };
+
     return (
       <Badge variant="outline" className={colors[action] || ""}>
-        {action === 'create' ? 'Створено' : action === 'update' ? 'Оновлено' : action === 'delete' ? 'Видалено' : action}
+        {labels[action] || action}
       </Badge>
     );
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString('uk-UA', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getResourceTypeName = (type: string | null) => {
-    const types: Record<string, string> = {
-      'group': 'Група',
-      'resource': 'Ресурс',
-      'integration': 'Інтеграція',
-      'member': 'Учасник',
+  const getResourceTypeLabel = (type: string | null) => {
+    const labels: Record<string, string> = {
+      "group": "Група",
+      "resource": "Ресурс",
+      "integration": "Інтеграція",
+      "member": "Користувач",
     };
-    return type ? types[type] || type : 'Невідомо';
-  };
-
-  const getDetailsText = (log: AuditLog) => {
-    if (!log.details) return '';
-    
-    if (log.action === 'create' && log.resource_type === 'group') {
-      return `Назва: ${log.details.name}`;
-    }
-    if (log.action === 'create' && log.resource_type === 'member') {
-      return `Email: ${log.details.email}, Роль: ${log.details.role}`;
-    }
-    if (log.action === 'create' && log.resource_type === 'resource') {
-      return `${log.details.name} (${log.details.type})`;
-    }
-    if (log.action === 'create' && log.resource_type === 'integration') {
-      return `${log.details.name} (${log.details.type})`;
-    }
-    if (log.action === 'delete' && log.resource_type === 'member') {
-      return `Email: ${log.details.email}`;
-    }
-    
-    return JSON.stringify(log.details).substring(0, 100);
+    return labels[type || ''] || type || '-';
   };
 
   return (
@@ -166,7 +141,7 @@ export default function Audit() {
                 <SelectValue placeholder="Всі дії" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Всі дії</SelectItem>
+                <SelectItem value="all">Всі типи</SelectItem>
                 <SelectItem value="resource">Ресурси</SelectItem>
                 <SelectItem value="member">Користувачі</SelectItem>
                 <SelectItem value="integration">Інтеграції</SelectItem>
@@ -194,34 +169,32 @@ export default function Audit() {
               Подій не знайдено
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[180px]">Час</TableHead>
-                    <TableHead>Користувач</TableHead>
-                    <TableHead>Дія</TableHead>
-                    <TableHead>Тип</TableHead>
-                    <TableHead>Деталі</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[180px]">Час</TableHead>
+                  <TableHead>Користувач</TableHead>
+                  <TableHead>Дія</TableHead>
+                  <TableHead>Тип</TableHead>
+                  <TableHead>Деталі</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredEvents.map((event) => (
+                  <TableRow key={event.id}>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(event.created_at).toLocaleString('uk-UA')}
+                    </TableCell>
+                    <TableCell className="font-medium">{event.user_email}</TableCell>
+                    <TableCell>{getActionBadge(event.action)}</TableCell>
+                    <TableCell>{getResourceTypeLabel(event.resource_type)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {event.details?.name || JSON.stringify(event.details)}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredEvents.map((event) => (
-                    <TableRow key={event.id}>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(event.created_at)}
-                      </TableCell>
-                      <TableCell className="font-medium">{event.user_email}</TableCell>
-                      <TableCell>{getActionBadge(event.action)}</TableCell>
-                      <TableCell>{getResourceTypeName(event.resource_type)}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-md truncate">
-                        {getDetailsText(event)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

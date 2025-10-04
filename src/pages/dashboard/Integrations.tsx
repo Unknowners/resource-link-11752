@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, RefreshCw, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,7 +26,7 @@ export default function Integrations() {
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
-    type: "jira",
+    type: "",
   });
 
   useEffect(() => {
@@ -57,7 +56,7 @@ export default function Integrations() {
 
       if (error) throw error;
 
-      // Get resource counts
+      // Get resource counts per integration
       const { data: resources } = await supabase
         .from('resources')
         .select('integration')
@@ -65,7 +64,7 @@ export default function Integrations() {
 
       const integrationsWithCounts = (integrationsData || []).map(integration => ({
         ...integration,
-        resource_count: resources?.filter(r => r.integration.toLowerCase() === integration.name.toLowerCase()).length || 0,
+        resource_count: resources?.filter(r => r.integration === integration.name).length || 0
       }));
 
       setIntegrations(integrationsWithCounts);
@@ -92,13 +91,13 @@ export default function Integrations() {
 
       if (error) throw error;
 
-      toast.success("Інтеграцію додано");
+      toast.success("Інтеграцію створено");
       setIsDialogOpen(false);
-      setFormData({ name: "", type: "jira" });
+      setFormData({ name: "", type: "" });
       loadIntegrations();
     } catch (error) {
       console.error('Error creating integration:', error);
-      toast.error("Помилка додавання інтеграції");
+      toast.error("Помилка створення інтеграції");
     }
   };
 
@@ -116,23 +115,6 @@ export default function Integrations() {
     } catch (error) {
       console.error('Error deleting integration:', error);
       toast.error("Помилка видалення інтеграції");
-    }
-  };
-
-  const handleSync = async (integrationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('integrations')
-        .update({ last_sync_at: new Date().toISOString() })
-        .eq('id', integrationId);
-
-      if (error) throw error;
-
-      toast.success("Синхронізація виконана");
-      loadIntegrations();
-    } catch (error) {
-      console.error('Error syncing:', error);
-      toast.error("Помилка синхронізації");
     }
   };
 
@@ -157,24 +139,13 @@ export default function Integrations() {
     }
   };
 
-  const formatLastSync = (date: string | null) => {
-    if (!date) return "Ніколи";
-    const diff = Date.now() - new Date(date).getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor(diff / (1000 * 60));
-    
-    if (hours > 0) return `${hours} год тому`;
-    if (minutes > 0) return `${minutes} хв тому`;
-    return "Щойно";
-  };
-
   return (
     <div className="p-4 md:p-8 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div>
           <h1 className="mb-2">Інтеграції</h1>
           <p className="text-muted-foreground">
-            Підключайте та керуйте інтеграціями робочого простору
+            Підключіть та керуйте інтеграціями
           </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -188,7 +159,7 @@ export default function Integrations() {
             <DialogHeader>
               <DialogTitle>Додати нову інтеграцію</DialogTitle>
               <DialogDescription>
-                Підключіть новий сервіс до організації
+                Введіть дані для нової інтеграції
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -198,31 +169,24 @@ export default function Integrations() {
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Jira Production"
+                  placeholder="Jira"
                 />
               </div>
               <div>
                 <Label htmlFor="type">Тип</Label>
-                <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="jira">Jira</SelectItem>
-                    <SelectItem value="confluence">Confluence</SelectItem>
-                    <SelectItem value="notion">Notion</SelectItem>
-                    <SelectItem value="gdrive">Google Drive</SelectItem>
-                    <SelectItem value="slack">Slack</SelectItem>
-                    <SelectItem value="github">GitHub</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="type"
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  placeholder="jira"
+                />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Скасувати
               </Button>
-              <Button onClick={handleCreateIntegration} disabled={!formData.name}>
+              <Button onClick={handleCreateIntegration} disabled={!formData.name || !formData.type}>
                 Додати
               </Button>
             </DialogFooter>
@@ -239,7 +203,7 @@ export default function Integrations() {
           <CardHeader className="text-center">
             <CardTitle>Додайте першу інтеграцію</CardTitle>
             <CardDescription>
-              Підключіть сервіси для синхронізації ресурсів
+              Інтеграції допомагають підключити зовнішні сервіси
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
@@ -260,10 +224,10 @@ export default function Integrations() {
                       {integration.name}
                       {getStatusBadge(integration.status)}
                     </CardTitle>
-                    <CardDescription className="capitalize">{integration.type}</CardDescription>
+                    <CardDescription>{integration.type}</CardDescription>
                   </div>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="sm"
                     onClick={() => handleDeleteIntegration(integration.id)}
                   >
@@ -283,21 +247,16 @@ export default function Integrations() {
                   <div className="space-y-4">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Остання синхронізація</span>
-                      <span className="font-medium">{formatLastSync(integration.last_sync_at)}</span>
+                      <span className="font-medium">
+                        {integration.last_sync_at 
+                          ? new Date(integration.last_sync_at).toLocaleString('uk-UA')
+                          : 'Ніколи'}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Ресурсів</span>
                       <span className="font-medium">{integration.resource_count}</span>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full"
-                      onClick={() => handleSync(integration.id)}
-                    >
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Синхронізувати
-                    </Button>
                   </div>
                 )}
               </CardContent>
