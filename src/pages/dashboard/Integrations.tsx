@@ -358,11 +358,13 @@ export default function Integrations() {
     try {
       const loadingToast = toast.loading('Обробка авторизації...');
       
+      const redirectUri = `${window.location.origin}/app/integrations`;
       const { data, error } = await supabase.functions.invoke('oauth-callback', {
         body: {
           integration_id: integrationId,
           code: code,
           state: sessionStorage.getItem('oauth_state'),
+          redirect_uri: redirectUri,
         },
       });
 
@@ -373,6 +375,19 @@ export default function Integrations() {
       if (data?.success) {
         if (data.status === 'validated') {
           toast.success(data.message);
+          // Автосинхронізація ресурсів для Notion
+          if (data.integration_type === 'notion') {
+            const syncingToast = toast.loading('Синхронізація Notion ресурсів...');
+            const { data: syncData, error: syncError } = await supabase.functions.invoke('sync-notion-resources', {
+              body: { integration_id: integrationId },
+            });
+            toast.dismiss(syncingToast);
+            if (syncError || !syncData?.success) {
+              toast.error(syncData?.error || syncError?.message || 'Не вдалося синхронізувати ресурси');
+            } else {
+              toast.success(syncData.message || 'Ресурси синхронізовано');
+            }
+          }
         } else if (data.status === 'error') {
           toast.error(data.message);
         } else {

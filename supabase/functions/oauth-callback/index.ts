@@ -34,8 +34,8 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { integration_id, code, state } = await req.json();
-    console.log('OAuth callback received:', { integration_id, state });
+    const { integration_id, code, state, redirect_uri } = await req.json();
+    console.log('OAuth callback received:', { integration_id, state, redirect_uri });
 
     // Отримуємо налаштування інтеграції
     const { data: integration, error: integrationError } = await supabaseClient
@@ -52,7 +52,10 @@ Deno.serve(async (req) => {
 
     // Обмінюємо код на токени
     // redirect_uri повинен співпадати з тим, який використовувався при авторизації
-    const redirectUri = integration.config?.redirect_uri || `https://documinds.online/app/integrations`;
+    const origin = req.headers.get('origin') || undefined;
+    const fallbackUri = origin ? `${origin}/app/integrations` : 'https://documinds.online/app/integrations';
+    const redirectUri = redirect_uri || integration.config?.redirect_uri || fallbackUri;
+    console.log('Using redirect_uri for token exchange:', redirectUri);
     
     const tokenResponse = await fetch(integration.oauth_token_url, {
       method: 'POST',
@@ -208,6 +211,7 @@ Deno.serve(async (req) => {
           ? `Токен отримано, але є проблема: ${validationError}`
           : 'Авторизація успішна! Перевірка підключення...',
         status: validationStatus,
+        integration_type: integration.type,
         missing_scopes: missingScopes.length > 0 ? missingScopes : undefined,
       }),
       { 
