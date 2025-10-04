@@ -92,9 +92,11 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
     oauth_authorize_url: "https://api.notion.com/v1/oauth/authorize",
     oauth_token_url: "https://api.notion.com/v1/oauth/token",
     oauth_scopes: "",
-    instructions: `1. Створіть Notion Integration на https://www.notion.so/my-integrations
-2. New integration → Дайте назву → Submit
-3. Integration type → Public
+    instructions: `⚠️ ВАЖЛИВО: Спочатку завершіть ВСІ кроки в Notion, потім створюйте інтеграцію тут!
+
+1. Створіть Notion Integration на https://www.notion.so/my-integrations
+2. New integration → Вкажіть назву → Submit
+3. Integration type → **Public** (обов'язково!)
 4. Заповніть обов'язкові поля:
    • Company name: Documinds (або ваша назва)
    • Website: https://documinds.online
@@ -102,14 +104,15 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
    • Privacy Policy URL: https://documinds.online/privacy
    • Terms of Use URL: https://documinds.online/terms
    • Email: ваш email
-   • Logo: використайте логотип https://documinds.online/documinds-logo.png
-5. Redirect URIs → Add URI: https://documinds.online/app/integrations
-6. Authorization URL: https://api.notion.com/v1/oauth/authorize
-7. Capabilities → Read content, Read user, Read comments
-8. Distribution → Make public
-9. Скопіюйте OAuth client ID та OAuth client secret
+   • Logo: використайте https://documinds.online/documinds-logo.png
+5. **Redirect URIs** → Add URI: https://documinds.online/app/integrations
+6. **Authorization URL**: https://api.notion.com/v1/oauth/authorize
+7. **Capabilities** → Read content, Read user, Read comments
+8. **ВАЖЛИВО**: Distribution → Submit for review або Make public
+9. Натисніть **Save changes** внизу сторінки!
+10. **Скопіюйте OAuth client ID та OAuth client secret** (НЕ Integration ID!)
 
-Після підключення ви зможете працювати з усіма Notion workspaces автоматично.`
+Тільки після збереження всіх налаштувань створюйте інтеграцію тут.`
   },
 ];
 
