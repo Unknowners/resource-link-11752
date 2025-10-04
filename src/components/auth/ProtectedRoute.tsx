@@ -65,7 +65,9 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
 
   if (!session) {
     // Redirect to admin login if admin route, otherwise to regular login
-    return <Navigate to={requireAdmin ? "/admin/login" : "/login"} replace />;
+    const currentPath = window.location.pathname + window.location.search;
+    const redirectPath = requireAdmin ? "/admin/login" : "/login";
+    return <Navigate to={`${redirectPath}?redirect=${encodeURIComponent(currentPath)}`} replace />;
   }
 
   if (requireAdmin && !isSuperAdmin) {
