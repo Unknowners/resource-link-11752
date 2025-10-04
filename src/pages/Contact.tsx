@@ -24,14 +24,14 @@ export default function Contact() {
   return (
     <div className="flex flex-col">
       {/* Header */}
-      <section className="py-24 sm:py-32 lg:py-40 relative overflow-hidden">
+      <section className="py-16 sm:py-24 md:py-32 lg:py-40 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="mx-auto max-w-4xl text-center">
-            <h1 className="mb-6 font-display">
+            <h1 className="mb-4 sm:mb-6 font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl">
               <span className="gradient-text">Зв'яжіться з нами</span>
             </h1>
-            <p className="text-xl text-muted-foreground leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed px-4 sm:px-0">
               Є питання? Ми будемо раді вам допомогти. Напишіть нам, і ми відповімо якомога швидше.
             </p>
           </div>
@@ -39,9 +39,9 @@ export default function Contact() {
       </section>
 
       {/* Contact Section */}
-      <section className="py-20 lg:py-24">
+      <section className="py-12 sm:py-16 lg:py-24">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
+          <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
             {/* Contact Form */}
             <div>
               <Card className="border-2 shadow-xl">
@@ -52,7 +52,7 @@ export default function Contact() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleSubmit} className="space-y-6">
+                  <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                     <div className="space-y-2">
                       <Label htmlFor="name" className="text-base">Ім'я</Label>
                       <Input
@@ -105,7 +105,7 @@ export default function Contact() {
                         required
                       />
                     </div>
-                    <Button type="submit" className="w-full h-12 text-base" size="lg">
+                    <Button type="submit" className="w-full h-11 sm:h-12 text-base" size="lg">
                       Надіслати повідомлення
                     </Button>
                   </form>
@@ -114,9 +114,9 @@ export default function Contact() {
             </div>
 
             {/* Contact Info */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <div>
-                <h2 className="mb-8 font-display text-3xl">Інші способи зв'язку</h2>
+                <h2 className="mb-6 sm:mb-8 font-display text-2xl sm:text-3xl">Інші способи зв'язку</h2>
               </div>
 
               <Card className="glass-card hover:shadow-xl transition-all border-2">

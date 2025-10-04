@@ -41,17 +41,17 @@ export default function Overview() {
   ];
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-8">
       {/* Header */}
       <div>
-        <h1 className="font-display">Огляд панелі</h1>
-        <p className="text-muted-foreground text-lg mt-2">
+        <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl">Огляд панелі</h1>
+        <p className="text-muted-foreground text-base sm:text-lg mt-2">
           Ласкаво просимо! Ось що відбувається у вашій організації.
         </p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
