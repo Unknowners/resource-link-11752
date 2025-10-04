@@ -529,11 +529,17 @@ export default function Integrations() {
                       <Input
                         id="oauth_authorize_url"
                         value={formData.oauth_authorize_url}
-                        onChange={(e) => setFormData({ ...formData, oauth_authorize_url: e.target.value })}
+                        onChange={(e) => {
+                          // Автоматично очищаємо від https://, http://, та слешів
+                          let cleanUrl = e.target.value.trim();
+                          cleanUrl = cleanUrl.replace(/^https?:\/\//, ''); // видаляємо https:// або http://
+                          cleanUrl = cleanUrl.replace(/\/+$/, ''); // видаляємо слеші в кінці
+                          setFormData({ ...formData, oauth_authorize_url: cleanUrl });
+                        }}
                         placeholder="yourcompany.atlassian.net"
                       />
                       <p className="text-xs text-muted-foreground mt-1">
-                        Введіть ваш Atlassian domain без https://
+                        Введіть ваш Atlassian domain (автоматично очищається від https://)
                       </p>
                     </div>
 
