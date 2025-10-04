@@ -84,48 +84,113 @@ Deno.serve(async (req) => {
         const userData = await testResponse.json();
         console.log('Jira authentication successful for user:', userData.emailAddress);
         validationStatus = 'validated';
-          
-          // Створюємо ресурс для цього Jira сайту тільки якщо є integration_id
-          if (integration_id) {
-            const { data: integration } = await supabaseClient
-              .from('integrations')
-              .select('organization_id, name')
-              .eq('id', integration_id)
-              .single();
+        
+        // Синхронізуємо ресурси тільки якщо є integration_id
+        if (integration_id) {
+          const { data: integration } = await supabaseClient
+            .from('integrations')
+            .select('organization_id, name')
+            .eq('id', integration_id)
+            .single();
 
-            if (integration) {
-              const siteName = normalizedUrl.replace('https://', '').replace('http://', '');
-              
-              // Спочатку перевіряємо чи існує такий ресурс
-              const { data: existingResource } = await supabaseClient
-                .from('resources')
-                .select('id')
-                .eq('organization_id', integration.organization_id)
-                .eq('name', `Jira: ${siteName}`)
-                .eq('integration', integration.name)
-                .maybeSingle();
+          if (integration) {
+            const siteName = normalizedUrl.replace('https://', '').replace('http://', '');
+            let syncedCount = 0;
+            
+            // 1. Витягуємо Jira проекти
+            try {
+              const projectsResponse = await fetch(`${normalizedUrl}/rest/api/3/project`, {
+                headers: {
+                  'Authorization': `Basic ${authString}`,
+                  'Accept': 'application/json',
+                },
+              });
 
-              if (!existingResource) {
-                const { error: resourceError } = await supabaseClient
-                  .from('resources')
-                  .insert({
-                    organization_id: integration.organization_id,
-                    name: `Jira: ${siteName}`,
-                    type: 'atlassian_site',
-                    integration: integration.name,
-                    url: normalizedUrl,
-                  });
+              if (projectsResponse.ok) {
+                const projects = await projectsResponse.json();
+                console.log(`Found ${projects.length} Jira projects`);
                 
-                if (resourceError) {
-                  console.error('Failed to sync Jira resource:', resourceError);
-                } else {
-                  console.log('Synced Jira site to database:', siteName);
+                for (const project of projects) {
+                  const resourceName = `${project.key} - ${project.name}`;
+                  
+                  const { data: existing } = await supabaseClient
+                    .from('resources')
+                    .select('id')
+                    .eq('organization_id', integration.organization_id)
+                    .eq('name', resourceName)
+                    .eq('integration', integration.name)
+                    .maybeSingle();
+
+                  if (!existing) {
+                    await supabaseClient
+                      .from('resources')
+                      .insert({
+                        organization_id: integration.organization_id,
+                        name: resourceName,
+                        type: 'jira_project',
+                        integration: integration.name,
+                        url: `${normalizedUrl}/browse/${project.key}`,
+                      });
+                    syncedCount++;
+                  }
                 }
-              } else {
-                console.log('Resource already exists:', siteName);
               }
+            } catch (err) {
+              console.error('Failed to fetch Jira projects:', err);
             }
+
+            // 2. Витягуємо Confluence spaces
+            try {
+              const spacesResponse = await fetch(`${normalizedUrl}/wiki/rest/api/space`, {
+                headers: {
+                  'Authorization': `Basic ${authString}`,
+                  'Accept': 'application/json',
+                },
+              });
+
+              if (spacesResponse.ok) {
+                const spacesData = await spacesResponse.json();
+                const spaces = spacesData.results || [];
+                console.log(`Found ${spaces.length} Confluence spaces`);
+                
+                for (const space of spaces) {
+                  const resourceName = `${space.key} - ${space.name}`;
+                  
+                  const { data: existing } = await supabaseClient
+                    .from('resources')
+                    .select('id')
+                    .eq('organization_id', integration.organization_id)
+                    .eq('name', resourceName)
+                    .eq('integration', integration.name)
+                    .maybeSingle();
+
+                  if (!existing) {
+                    await supabaseClient
+                      .from('resources')
+                      .insert({
+                        organization_id: integration.organization_id,
+                        name: resourceName,
+                        type: 'confluence_space',
+                        integration: integration.name,
+                        url: `${normalizedUrl}/wiki/spaces/${space.key}`,
+                      });
+                    syncedCount++;
+                  }
+                }
+              }
+            } catch (err) {
+              console.error('Failed to fetch Confluence spaces:', err);
+            }
+
+            console.log(`Synced ${syncedCount} new resources from ${siteName}`);
+            
+            // Оновлюємо last_sync_at
+            await supabaseClient
+              .from('integrations')
+              .update({ last_sync_at: new Date().toISOString() })
+              .eq('id', integration_id);
           }
+        }
       } else {
         const errorText = await testResponse.text();
         console.error('Validation failed:', testResponse.status, errorText);
