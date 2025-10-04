@@ -52,13 +52,22 @@ Deno.serve(async (req) => {
 
     // Обмінюємо код на токени
     // redirect_uri повинен співпадати з тим, який використовувався при авторизації
-    const redirectUri = integration.config?.redirect_uri || 'https://documinds.online/app/integrations';
+    const redirectUri = integration.config?.redirect_uri || redirect_uri || 'https://documinds.online/app/integrations';
     console.log('Using redirect_uri for token exchange:', redirectUri);
     
     let tokenResponse: Response;
     if (integration.type === 'notion') {
       // Notion requires Basic auth header and JSON body for token exchange
-      const basic = btoa(`${integration.oauth_client_id}:${integration.oauth_client_secret}`);
+      console.log('client_id:', integration.oauth_client_id);
+      const secretPreview = (integration.oauth_client_secret ?? '').slice(0, 5) + '...';
+      console.log('client_secret:', secretPreview);
+      console.log('redirect_uri in request:', redirectUri);
+
+      // Safe Base64 for Deno (UTF-8 safe)
+      const encoder = new TextEncoder();
+      const data = encoder.encode(`${integration.oauth_client_id}:${integration.oauth_client_secret}`);
+      const basic = btoa(String.fromCharCode(...data));
+
       tokenResponse = await fetch(integration.oauth_token_url, {
         method: 'POST',
         headers: {
