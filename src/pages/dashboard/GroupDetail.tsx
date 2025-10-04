@@ -92,49 +92,51 @@ export default function GroupDetail() {
       if (groupData) setGroup(groupData);
 
       // Load group members
-      const { data: membersData } = await supabase
+      const { data: groupMembersData } = await supabase
         .from('group_members')
-        .select(`
-          user_id,
-          profiles:user_id (
-            email,
-            first_name,
-            last_name
-          )
-        `)
+        .select('user_id')
         .eq('group_id', id);
 
-      if (membersData) {
-        const formattedMembers = membersData.map((m: any) => ({
-          id: m.user_id,
-          email: m.profiles?.email || '',
-          first_name: m.profiles?.first_name,
-          last_name: m.profiles?.last_name,
-        }));
-        setMembers(formattedMembers);
+      if (groupMembersData && groupMembersData.length > 0) {
+        const memberUserIds = groupMembersData.map(m => m.user_id);
+        
+        const { data: memberProfiles } = await supabase
+          .from('profiles')
+          .select('id, email, first_name, last_name')
+          .in('id', memberUserIds);
+
+        if (memberProfiles) {
+          const formattedMembers = memberProfiles.map((p) => ({
+            id: p.id,
+            email: p.email || '',
+            first_name: p.first_name,
+            last_name: p.last_name,
+          }));
+          setMembers(formattedMembers);
+        }
+      } else {
+        setMembers([]);
       }
 
       // Load group resources
-      const { data: resourcesData } = await supabase
+      const { data: groupResourcesData } = await supabase
         .from('resource_permissions')
-        .select(`
-          resource_id,
-          resources:resource_id (
-            id,
-            name,
-            type,
-            integration,
-            url,
-            status
-          )
-        `)
+        .select('resource_id')
         .eq('group_id', id);
 
-      if (resourcesData) {
-        const formattedResources = resourcesData
-          .map((r: any) => r.resources)
-          .filter(Boolean);
-        setResources(formattedResources);
+      if (groupResourcesData && groupResourcesData.length > 0) {
+        const resourceIds = groupResourcesData.map(r => r.resource_id);
+        
+        const { data: resourceData } = await supabase
+          .from('resources')
+          .select('id, name, type, integration, url, status')
+          .in('id', resourceIds);
+
+        if (resourceData) {
+          setResources(resourceData);
+        }
+      } else {
+        setResources([]);
       }
 
       // Load available members (org members not in group)
@@ -144,27 +146,31 @@ export default function GroupDetail() {
         .eq('organization_id', orgMember.organization_id);
 
       if (orgMembers) {
-        const memberIds = new Set(membersData?.map((m: any) => m.user_id) || []);
+        const memberIds = new Set(groupMembersData?.map((m: any) => m.user_id) || []);
         const availableUserIds = orgMembers
           .filter((m) => !memberIds.has(m.user_id))
           .map((m) => m.user_id);
         
-        // Get profiles for available users
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('id, email, first_name, last_name')
-          .in('id', availableUserIds);
+        if (availableUserIds.length > 0) {
+          // Get profiles for available users
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('id, email, first_name, last_name')
+            .in('id', availableUserIds);
 
-        if (profilesData) {
-          const available = profilesData.map((p) => ({
-            user_id: p.id,
-            profiles: {
-              email: p.email || '',
-              first_name: p.first_name,
-              last_name: p.last_name,
-            },
-          }));
-          setAvailableMembers(available);
+          if (profilesData) {
+            const available = profilesData.map((p) => ({
+              user_id: p.id,
+              profiles: {
+                email: p.email || '',
+                first_name: p.first_name,
+                last_name: p.last_name,
+              },
+            }));
+            setAvailableMembers(available);
+          }
+        } else {
+          setAvailableMembers([]);
         }
       }
 
@@ -176,8 +182,8 @@ export default function GroupDetail() {
         .eq('status', 'active');
 
       if (allResources) {
-        const resourceIds = new Set(resourcesData?.map((r: any) => r.resource_id) || []);
-        const available = allResources.filter((r) => !resourceIds.has(r.id));
+        const assignedResourceIds = new Set(groupResourcesData?.map((r: any) => r.resource_id) || []);
+        const available = allResources.filter((r) => !assignedResourceIds.has(r.id));
         setAvailableResources(available);
       }
     } catch (error) {
