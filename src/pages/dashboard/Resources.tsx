@@ -20,8 +20,16 @@ interface Resource {
   groups: string[];
 }
 
+interface Integration {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+}
+
 export default function Resources() {
   const [resources, setResources] = useState<Resource[]>([]);
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -30,15 +38,15 @@ export default function Resources() {
   const [formData, setFormData] = useState({
     name: "",
     type: "",
-    integration: "",
+    integration_id: "",
     url: "",
   });
 
   useEffect(() => {
-    loadResources();
+    loadData();
   }, []);
 
-  const loadResources = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
       
@@ -53,6 +61,15 @@ export default function Resources() {
 
       if (!member) return;
       setOrganizationId(member.organization_id);
+
+      // Load integrations
+      const { data: integrationsData } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('organization_id', member.organization_id)
+        .eq('status', 'connected');
+
+      setIntegrations(integrationsData || []);
 
       const { data: resourcesData, error } = await supabase
         .from('resources')
@@ -77,24 +94,49 @@ export default function Resources() {
 
       setResources(resourcesWithGroups);
     } catch (error) {
-      console.error('Error loading resources:', error);
-      toast.error("Помилка завантаження ресурсів");
+      console.error('Error loading data:', error);
+      toast.error("Помилка завантаження даних");
     } finally {
       setLoading(false);
     }
   };
 
+  const getResourceTypes = (integrationType: string): { value: string; label: string }[] => {
+    const types: Record<string, { value: string; label: string }[]> = {
+      jira: [
+        { value: 'project', label: 'Проєкт' },
+        { value: 'board', label: 'Дошка' },
+      ],
+      confluence: [
+        { value: 'space', label: 'Простір' },
+        { value: 'page', label: 'Сторінка' },
+      ],
+      notion: [
+        { value: 'workspace', label: 'Робочий простір' },
+        { value: 'database', label: 'База даних' },
+      ],
+      gdrive: [
+        { value: 'folder', label: 'Папка' },
+        { value: 'file', label: 'Файл' },
+      ],
+    };
+    return types[integrationType.toLowerCase()] || [];
+  };
+
   const handleCreateResource = async () => {
-    if (!organizationId) return;
+    if (!organizationId || !formData.integration_id) return;
     
     try {
+      const selectedIntegration = integrations.find(i => i.id === formData.integration_id);
+      if (!selectedIntegration) return;
+
       const { error } = await supabase
         .from('resources')
         .insert({
           organization_id: organizationId,
           name: formData.name,
           type: formData.type,
-          integration: formData.integration,
+          integration: selectedIntegration.name,
           url: formData.url,
         });
 
@@ -102,8 +144,8 @@ export default function Resources() {
 
       toast.success("Ресурс створено");
       setIsDialogOpen(false);
-      setFormData({ name: "", type: "", integration: "", url: "" });
-      loadResources();
+      setFormData({ name: "", type: "", integration_id: "", url: "" });
+      loadData();
     } catch (error) {
       console.error('Error creating resource:', error);
       toast.error("Помилка створення ресурсу");
@@ -120,12 +162,15 @@ export default function Resources() {
       if (error) throw error;
 
       toast.success("Ресурс видалено");
-      loadResources();
+      loadData();
     } catch (error) {
       console.error('Error deleting resource:', error);
       toast.error("Помилка видалення ресурсу");
     }
   };
+
+  const selectedIntegration = integrations.find(i => i.id === formData.integration_id);
+  const availableResourceTypes = selectedIntegration ? getResourceTypes(selectedIntegration.type) : [];
 
   const filteredResources = resources.filter(resource => {
     const matchesSearch = resource.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -164,52 +209,85 @@ export default function Resources() {
             <DialogHeader>
               <DialogTitle>Додати новий ресурс</DialogTitle>
               <DialogDescription>
-                Введіть інформацію про новий ресурс
+                {integrations.length === 0 
+                  ? "Спочатку підключіть інтеграцію, щоб додати ресурси"
+                  : "Виберіть інтеграцію та тип ресурсу"}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Назва</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Project Alpha"
-                />
+            {integrations.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                Підключених інтеграцій не знайдено
               </div>
-              <div>
-                <Label htmlFor="type">Тип</Label>
-                <Input
-                  id="type"
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  placeholder="jiraProject"
-                />
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="integration">Інтеграція</Label>
+                  <Select 
+                    value={formData.integration_id} 
+                    onValueChange={(value) => setFormData({ ...formData, integration_id: value, type: "" })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Виберіть інтеграцію" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {integrations.map((integration) => (
+                        <SelectItem key={integration.id} value={integration.id}>
+                          {integration.name} ({integration.type})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {formData.integration_id && (
+                  <>
+                    <div>
+                      <Label htmlFor="type">Тип ресурсу</Label>
+                      <Select 
+                        value={formData.type} 
+                        onValueChange={(value) => setFormData({ ...formData, type: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Виберіть тип" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableResourceTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="name">Назва</Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Назва ресурсу"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="url">URL (необов'язково)</Label>
+                      <Input
+                        id="url"
+                        value={formData.url}
+                        onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                        placeholder="https://..."
+                      />
+                    </div>
+                  </>
+                )}
               </div>
-              <div>
-                <Label htmlFor="integration">Інтеграція</Label>
-                <Input
-                  id="integration"
-                  value={formData.integration}
-                  onChange={(e) => setFormData({ ...formData, integration: e.target.value })}
-                  placeholder="Jira"
-                />
-              </div>
-              <div>
-                <Label htmlFor="url">URL</Label>
-                <Input
-                  id="url"
-                  value={formData.url}
-                  onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                  placeholder="https://..."
-                />
-              </div>
-            </div>
+            )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Скасувати
               </Button>
-              <Button onClick={handleCreateResource} disabled={!formData.name || !formData.type || !formData.integration}>
+              <Button 
+                onClick={handleCreateResource} 
+                disabled={!formData.name || !formData.type || !formData.integration_id || integrations.length === 0}
+              >
                 Додати
               </Button>
             </DialogFooter>
