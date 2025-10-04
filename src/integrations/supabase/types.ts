@@ -125,6 +125,50 @@ export type Database = {
           },
         ]
       }
+      integration_credentials: {
+        Row: {
+          access_token: string | null
+          created_at: string
+          id: string
+          integration_id: string
+          refresh_token: string | null
+          scope: string | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string
+          id?: string
+          integration_id: string
+          refresh_token?: string | null
+          scope?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string
+          id?: string
+          integration_id?: string
+          refresh_token?: string | null
+          scope?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_credentials_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integrations: {
         Row: {
           config: Json | null
@@ -133,6 +177,11 @@ export type Database = {
           id: string
           last_sync_at: string | null
           name: string
+          oauth_authorize_url: string | null
+          oauth_client_id: string | null
+          oauth_client_secret: string | null
+          oauth_scopes: string | null
+          oauth_token_url: string | null
           organization_id: string
           status: string
           type: string
@@ -145,6 +194,11 @@ export type Database = {
           id?: string
           last_sync_at?: string | null
           name: string
+          oauth_authorize_url?: string | null
+          oauth_client_id?: string | null
+          oauth_client_secret?: string | null
+          oauth_scopes?: string | null
+          oauth_token_url?: string | null
           organization_id: string
           status?: string
           type: string
@@ -157,6 +211,11 @@ export type Database = {
           id?: string
           last_sync_at?: string | null
           name?: string
+          oauth_authorize_url?: string | null
+          oauth_client_id?: string | null
+          oauth_client_secret?: string | null
+          oauth_scopes?: string | null
+          oauth_token_url?: string | null
           organization_id?: string
           status?: string
           type?: string
