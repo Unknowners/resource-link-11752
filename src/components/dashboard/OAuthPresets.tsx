@@ -95,12 +95,20 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
     instructions: `1. Створіть Notion Integration на https://www.notion.so/my-integrations
 2. New integration → Дайте назву → Submit
 3. Integration type → Public
-4. Redirect URIs → Add URI: ${getRedirectUrl()}
-5. Capabilities → Оберіть потрібні (Read content, Read user тощо)
-6. Distribution → Make public
-7. Скопіюйте OAuth client ID та OAuth client secret
+4. Заповніть обов'язкові поля:
+   • Company name: назва вашої компанії
+   • Website: ваш сайт (наприклад: https://yourcompany.com)
+   • Tagline: короткий опис (наприклад: "Resource access management")
+   • Privacy Policy URL: ${window.location.origin}/privacy
+   • Terms of Use URL: ${window.location.origin}/terms
+   • Email: ваш email
+   • Logo: завантажте логотип вашої компанії
+5. Redirect URIs → Add URI: ${getRedirectUrl()}
+6. Capabilities → Оберіть потрібні (Read content, Read user тощо)
+7. Distribution → Make public
+8. Скопіюйте OAuth client ID та OAuth client secret
 
-Після підключення ви зможете працювати з усіма Notion workspaces, до яких надасте доступ при авторизації.`
+Після підключення ви зможете працювати з усіма Notion workspaces автоматично.`
   },
 ];
 
