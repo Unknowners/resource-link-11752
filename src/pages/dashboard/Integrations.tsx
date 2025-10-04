@@ -291,6 +291,8 @@ export default function Integrations() {
       }
 
       try {
+        const redirectUri = `${window.location.origin}/app/integrations`;
+        
         const insertData: any = {
           organization_id: organizationId,
           name: formData.name,
@@ -302,6 +304,9 @@ export default function Integrations() {
           oauth_authorize_url: formData.oauth_authorize_url || null,
           oauth_token_url: formData.oauth_token_url || null,
           oauth_scopes: formData.oauth_scopes || null,
+          config: {
+            redirect_uri: redirectUri
+          },
         };
 
         const { error } = await supabase

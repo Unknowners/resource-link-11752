@@ -51,6 +51,9 @@ Deno.serve(async (req) => {
     console.log('Integration found:', integration.name);
 
     // Обмінюємо код на токени
+    // redirect_uri повинен співпадати з тим, який використовувався при авторизації
+    const redirectUri = integration.config?.redirect_uri || `https://documinds.online/app/integrations`;
+    
     const tokenResponse = await fetch(integration.oauth_token_url, {
       method: 'POST',
       headers: {
@@ -61,7 +64,7 @@ Deno.serve(async (req) => {
         code: code,
         client_id: integration.oauth_client_id,
         client_secret: integration.oauth_client_secret,
-        redirect_uri: `${Deno.env.get('SUPABASE_URL')}/functions/v1/oauth-callback`,
+        redirect_uri: redirectUri,
       }),
     });
 
