@@ -84,37 +84,48 @@ Deno.serve(async (req) => {
         const userData = await testResponse.json();
         console.log('Jira authentication successful for user:', userData.emailAddress);
         validationStatus = 'validated';
-        
-        // Створюємо ресурс для цього Jira сайту тільки якщо є integration_id
-        if (integration_id) {
-          const { data: integration } = await supabaseClient
-            .from('integrations')
-            .select('organization_id, name')
-            .eq('id', integration_id)
-            .single();
+          
+          // Створюємо ресурс для цього Jira сайту тільки якщо є integration_id
+          if (integration_id) {
+            const { data: integration } = await supabaseClient
+              .from('integrations')
+              .select('organization_id, name')
+              .eq('id', integration_id)
+              .single();
 
-          if (integration) {
-            const siteName = normalizedUrl.replace('https://', '').replace('http://', '');
-            
-            const { error: resourceError } = await supabaseClient
-              .from('resources')
-              .upsert({
-                organization_id: integration.organization_id,
-                name: `Jira: ${siteName}`,
-                type: 'atlassian_site',
-                integration: integration.name,
-                url: normalizedUrl,
-              }, {
-                onConflict: 'organization_id,name,integration',
-              });
-            
-            if (resourceError) {
-              console.error('Failed to sync Jira resource:', resourceError);
-            } else {
-              console.log('Synced Jira site to database:', siteName);
+            if (integration) {
+              const siteName = normalizedUrl.replace('https://', '').replace('http://', '');
+              
+              // Спочатку перевіряємо чи існує такий ресурс
+              const { data: existingResource } = await supabaseClient
+                .from('resources')
+                .select('id')
+                .eq('organization_id', integration.organization_id)
+                .eq('name', `Jira: ${siteName}`)
+                .eq('integration', integration.name)
+                .maybeSingle();
+
+              if (!existingResource) {
+                const { error: resourceError } = await supabaseClient
+                  .from('resources')
+                  .insert({
+                    organization_id: integration.organization_id,
+                    name: `Jira: ${siteName}`,
+                    type: 'atlassian_site',
+                    integration: integration.name,
+                    url: normalizedUrl,
+                  });
+                
+                if (resourceError) {
+                  console.error('Failed to sync Jira resource:', resourceError);
+                } else {
+                  console.log('Synced Jira site to database:', siteName);
+                }
+              } else {
+                console.log('Resource already exists:', siteName);
+              }
             }
           }
-        }
       } else {
         const errorText = await testResponse.text();
         console.error('Validation failed:', testResponse.status, errorText);
@@ -129,21 +140,48 @@ Deno.serve(async (req) => {
 
     // Зберігаємо credentials тільки якщо є integration_id
     if (integration_id) {
-      const { error: credentialsError } = await supabaseClient
+      // Спочатку перевіряємо чи існує запис
+      const { data: existing } = await supabaseClient
         .from('integration_credentials')
-        .upsert({
-          integration_id: integration_id,
-          user_id: user.id,
-          access_token: api_token,
-          connection_status: validationStatus,
-          validation_error: validationError,
-          last_validated_at: new Date().toISOString(),
-          scope: 'api_token_auth',
-        });
+        .select('id')
+        .eq('integration_id', integration_id)
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (credentialsError) {
-        console.error('Failed to save credentials:', credentialsError);
-        throw credentialsError;
+      if (existing) {
+        // Оновлюємо існуючий
+        const { error: credentialsError } = await supabaseClient
+          .from('integration_credentials')
+          .update({
+            access_token: api_token,
+            connection_status: validationStatus,
+            validation_error: validationError,
+            last_validated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id);
+
+        if (credentialsError) {
+          console.error('Failed to update credentials:', credentialsError);
+          throw credentialsError;
+        }
+      } else {
+        // Створюємо новий
+        const { error: credentialsError } = await supabaseClient
+          .from('integration_credentials')
+          .insert({
+            integration_id: integration_id,
+            user_id: user.id,
+            access_token: api_token,
+            connection_status: validationStatus,
+            validation_error: validationError,
+            last_validated_at: new Date().toISOString(),
+            scope: 'api_token_auth',
+          });
+
+        if (credentialsError) {
+          console.error('Failed to save credentials:', credentialsError);
+          throw credentialsError;
+        }
       }
 
       console.log('Credentials saved with status:', validationStatus);
