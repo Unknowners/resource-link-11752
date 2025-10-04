@@ -180,6 +180,11 @@ export default function Integrations() {
 
       // Для API Token - спочатку валідуємо, потім створюємо
       try {
+        console.log('=== VALIDATING API TOKEN ===');
+        console.log('Site URL:', formData.oauth_authorize_url);
+        console.log('Email:', formData.oauth_client_id);
+        console.log('Token length:', formData.oauth_client_secret?.length);
+        
         const loadingToast = toast.loading('Перевірка підключення...');
         
         const { data, error } = await supabase.functions.invoke('validate-api-token', {
@@ -190,6 +195,8 @@ export default function Integrations() {
             site_url: formData.oauth_authorize_url,
           },
         });
+
+        console.log('Validation response:', { data, error });
 
         toast.dismiss(loadingToast);
 
