@@ -102,7 +102,7 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
    • Privacy Policy URL: https://documinds.online/privacy
    • Terms of Use URL: https://documinds.online/terms
    • Email: ваш email
-   • Logo: завантажте логотип
+   • Logo: використайте логотип https://documinds.online/documinds-logo.png
 5. Redirect URIs → Add URI: https://documinds.online/app/integrations
 6. Capabilities → Read content, Read user, Read comments
 7. Distribution → Make public
