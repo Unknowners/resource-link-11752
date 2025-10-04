@@ -104,9 +104,10 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
    • Email: ваш email
    • Logo: використайте логотип https://documinds.online/documinds-logo.png
 5. Redirect URIs → Add URI: https://documinds.online/app/integrations
-6. Capabilities → Read content, Read user, Read comments
-7. Distribution → Make public
-8. Скопіюйте OAuth client ID та OAuth client secret
+6. Authorization URL: https://api.notion.com/v1/oauth/authorize
+7. Capabilities → Read content, Read user, Read comments
+8. Distribution → Make public
+9. Скопіюйте OAuth client ID та OAuth client secret
 
 Після підключення ви зможете працювати з усіма Notion workspaces автоматично.`
   },
