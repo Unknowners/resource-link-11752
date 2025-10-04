@@ -19,15 +19,25 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
     type: "atlassian",
     oauth_authorize_url: "https://auth.atlassian.com/authorize",
     oauth_token_url: "https://auth.atlassian.com/oauth/token",
-    oauth_scopes: "read:jira-work read:jira-user read:confluence-content.all offline_access",
+    oauth_scopes: "read:jira-work read:jira-user read:servicedesk-request read:servicemanagement-insight-objects read:confluence-space.summary read:confluence-props read:confluence-content.all read:confluence-content.summary search:confluence read:confluence-user read:confluence-groups offline_access",
     instructions: `1. Створіть OAuth 2.0 app на https://developer.atlassian.com/console/myapps
 2. Натисніть "Create" → "OAuth 2.0 integration"
 3. Додайте Callback URL: ${getRedirectUrl()}
-4. Permissions → Configure:
-   • Jira API: read:jira-work, read:jira-user
-   • Confluence API: read:confluence-content.all
-   • Classic scopes: offline_access
-5. Settings → копіюйте Client ID та Secret сюди`
+4. Permissions → Jira API → Configure:
+   • View Jira issue data (read:jira-work)
+   • View user profiles (read:jira-user)
+   • View Service Management requests (read:servicedesk-request)
+   • Read Insight objects (read:servicemanagement-insight-objects)
+5. Permissions → Confluence API → Configure:
+   • Read space summary (read:confluence-space.summary)
+   • Read content properties (read:confluence-props)
+   • Read detailed content (read:confluence-content.all)
+   • Read content summary (read:confluence-content.summary)
+   • Search content (search:confluence)
+   • Read users (read:confluence-user)
+   • Read groups (read:confluence-groups)
+6. Classic scopes: offline_access
+7. Settings → копіюйте Client ID та Secret сюди`
   },
   {
     name: "Google Drive",
