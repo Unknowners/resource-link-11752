@@ -372,8 +372,9 @@ export default function Integrations() {
                 </div>
 
                 <div className="space-y-2 pt-2 border-t">
-                  <p className="text-sm text-muted-foreground">
-                    OAuth конфігурація (автоматично заповнено):
+                  <p className="text-sm font-medium">OAuth конфігурація</p>
+                  <p className="text-xs text-muted-foreground">
+                    Заповнено автоматично. Можете змінити scopes якщо потрібні інші права.
                   </p>
                   
                   <div>
@@ -397,14 +398,20 @@ export default function Integrations() {
                   </div>
 
                   <div>
-                    <Label htmlFor="oauth_scopes" className="text-xs text-muted-foreground">OAuth Scopes</Label>
+                    <Label htmlFor="oauth_scopes" className="text-xs">
+                      OAuth Scopes (можна редагувати)
+                    </Label>
                     <Textarea
                       id="oauth_scopes"
                       value={formData.oauth_scopes}
-                      readOnly
-                      className="bg-muted text-sm"
-                      rows={2}
+                      onChange={(e) => setFormData({ ...formData, oauth_scopes: e.target.value })}
+                      className="text-sm font-mono"
+                      placeholder="read:jira-work read:jira-user"
+                      rows={3}
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Розділіть пробілами. Додайте більше прав якщо потрібно.
+                    </p>
                   </div>
                 </div>
               </div>
