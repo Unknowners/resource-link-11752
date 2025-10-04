@@ -2,20 +2,63 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Login() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    // Check if user is already logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate("/app");
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        navigate("/app");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Функціонал входу буде реалізовано з підключенням бекенду");
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          toast.error("Невірний email або пароль");
+        } else {
+          toast.error(error.message);
+        }
+      } else {
+        toast.success("Успішний вхід!");
+        navigate("/app");
+      }
+    } catch (error) {
+      toast.error("Помилка при вході");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -74,8 +117,8 @@ export default function Login() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full h-12 text-base" size="lg">
-              Увійти
+            <Button type="submit" className="w-full h-12 text-base" size="lg" disabled={loading}>
+              {loading ? "Вхід..." : "Увійти"}
             </Button>
           </form>
         </CardContent>

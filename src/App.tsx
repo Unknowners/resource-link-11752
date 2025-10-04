@@ -35,6 +35,7 @@ import AdminIntegrations from "./pages/admin/AdminIntegrations";
 import AdminAudit from "./pages/admin/AdminAudit";
 import NotFound from "./pages/NotFound";
 import Forbidden from "./pages/Forbidden";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -60,7 +61,7 @@ const App = () => (
           <Route path="/onboarding" element={<Onboarding />} />
 
           {/* Organization Portal (/app) */}
-          <Route path="/app" element={<DashboardLayout />}>
+          <Route path="/app" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
             <Route index element={<Overview />} />
             <Route path="staff" element={<Staff />} />
             <Route path="groups" element={<Groups />} />
@@ -76,7 +77,7 @@ const App = () => (
           </Route>
 
           {/* Super Admin Console (/admin) */}
-          <Route path="/admin" element={<AdminLayout />}>
+          <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminLayout /></ProtectedRoute>}>
             <Route index element={<AdminOrgs />} />
             <Route path="orgs" element={<AdminOrgs />} />
             <Route path="orgs/:orgId" element={<AdminOrgDetail />} />

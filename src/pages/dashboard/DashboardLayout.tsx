@@ -1,6 +1,9 @@
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   LayoutDashboard,
   FolderOpen,
@@ -14,23 +17,43 @@ import {
 } from "lucide-react";
 
 const navigation = [
-  { name: "Огляд", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Ресурси", href: "/dashboard/resources", icon: FolderOpen },
-  { name: "Групи", href: "/dashboard/groups", icon: Users },
-  { name: "Команда", href: "/dashboard/staff", icon: UserCog },
-  { name: "Інтеграції", href: "/dashboard/integrations", icon: Link2 },
-  { name: "Аудит-лог", href: "/dashboard/audit", icon: FileText },
-  { name: "Налаштування", href: "/dashboard/settings", icon: Settings },
+  { name: "Огляд", href: "/app", icon: LayoutDashboard },
+  { name: "Ресурси", href: "/app/resources", icon: FolderOpen },
+  { name: "Групи", href: "/app/groups", icon: Users },
+  { name: "Команда", href: "/app/staff", icon: UserCog },
+  { name: "Інтеграції", href: "/app/integrations", icon: Link2 },
+  { name: "Аудит-лог", href: "/app/audit", icon: FileText },
+  { name: "Налаштування", href: "/app/settings", icon: Settings },
 ];
 
 export default function DashboardLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [userEmail, setUserEmail] = useState<string>("");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUserEmail(user.email || "");
+      }
+    });
+  }, []);
 
   const isActive = (path: string) => {
-    if (path === "/dashboard") {
-      return location.pathname === path;
+    if (path === "/app") {
+      return location.pathname === path || location.pathname === "/app/";
     }
     return location.pathname.startsWith(path);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast.success("Ви успішно вийшли");
+      navigate("/");
+    } catch (error) {
+      toast.error("Помилка при виході");
+    }
   };
 
   return (
@@ -71,15 +94,17 @@ export default function DashboardLayout() {
         </nav>
 
         <div className="p-4 border-t">
-          <div className="mb-4 px-4 py-3 rounded-xl bg-secondary/50">
-            <p className="text-sm font-semibold">Demo Organization</p>
-            <p className="text-xs text-muted-foreground">admin@demo.com</p>
-          </div>
-          <Button variant="ghost" className="w-full justify-start text-base" asChild>
-            <Link to="/">
-              <LogOut className="mr-2 h-5 w-5" />
-              Вийти
-            </Link>
+          <Link to="/app/profile" className="block mb-4 px-4 py-3 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors">
+            <p className="text-sm font-semibold">Мій профіль</p>
+            <p className="text-xs text-muted-foreground">{userEmail}</p>
+          </Link>
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start text-base" 
+            onClick={handleLogout}
+          >
+            <LogOut className="mr-2 h-5 w-5" />
+            Вийти
           </Button>
         </div>
       </aside>

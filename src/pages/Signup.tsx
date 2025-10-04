@@ -2,12 +2,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Signup() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -16,14 +18,70 @@ export default function Signup() {
     password: "",
     confirmPassword: "",
   });
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    // Check if user is already logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate("/app");
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        navigate("/app");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (formData.password !== formData.confirmPassword) {
       toast.error("Паролі не співпадають");
       return;
     }
-    toast.success("Функціонал реєстрації буде реалізовано з підключенням бекенду");
+
+    if (formData.password.length < 6) {
+      toast.error("Пароль повинен містити мінімум 6 символів");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            company: formData.company,
+          }
+        }
+      });
+
+      if (error) {
+        if (error.message.includes("User already registered")) {
+          toast.error("Користувач з таким email вже зареєстрований");
+        } else {
+          toast.error(error.message);
+        }
+      } else {
+        toast.success("Реєстрація успішна! Перевірте email для підтвердження.");
+        navigate("/login");
+      }
+    } catch (error) {
+      toast.error("Помилка при реєстрації");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -129,8 +187,8 @@ export default function Signup() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full h-12 text-base" size="lg">
-              Створити акаунт
+            <Button type="submit" className="w-full h-12 text-base" size="lg" disabled={loading}>
+              {loading ? "Реєстрація..." : "Створити акаунт"}
             </Button>
           </form>
         </CardContent>

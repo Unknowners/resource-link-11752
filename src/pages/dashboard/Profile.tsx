@@ -4,8 +4,106 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Save, User as UserIcon, Mail, Key } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function Profile() {
+  const [loading, setLoading] = useState(false);
+  const [profile, setProfile] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    company: "",
+  });
+  const [passwords, setPasswords] = useState({
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (profileData) {
+          setProfile({
+            firstName: profileData.first_name || "",
+            lastName: profileData.last_name || "",
+            email: profileData.email || user.email || "",
+            company: profileData.company || "",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          first_name: profile.firstName,
+          last_name: profile.lastName,
+          company: profile.company,
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      toast.success("Профіль оновлено");
+    } catch (error) {
+      toast.error("Помилка при оновленні профілю");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      toast.error("Паролі не співпадають");
+      return;
+    }
+
+    if (passwords.newPassword.length < 6) {
+      toast.error("Пароль повинен містити мінімум 6 символів");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwords.newPassword
+      });
+
+      if (error) throw error;
+      toast.success("Пароль змінено");
+      setPasswords({ newPassword: "", confirmPassword: "" });
+    } catch (error) {
+      toast.error("Помилка при зміні паролю");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getInitials = () => {
+    return `${profile.firstName.charAt(0)}${profile.lastName.charAt(0)}`.toUpperCase() || "U";
+  };
+
   return (
     <div className="p-8 space-y-6">
       {/* Header */}
@@ -22,7 +120,7 @@ export default function Profile() {
           <div className="flex items-center gap-4">
             <Avatar className="w-16 h-16">
               <AvatarFallback className="bg-primary text-primary-foreground text-xl">
-                AD
+                {getInitials()}
               </AvatarFallback>
             </Avatar>
             <div>
@@ -35,23 +133,39 @@ export default function Profile() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">Ім'я</Label>
-              <Input id="firstName" defaultValue="Admin" />
+              <Input 
+                id="firstName" 
+                value={profile.firstName}
+                onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="lastName">Прізвище</Label>
-              <Input id="lastName" defaultValue="Demo" />
+              <Input 
+                id="lastName" 
+                value={profile.lastName}
+                onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
+              />
             </div>
           </div>
           <div className="space-y-2">
+            <Label htmlFor="company">Компанія</Label>
+            <Input 
+              id="company" 
+              value={profile.company}
+              onChange={(e) => setProfile({ ...profile, company: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" defaultValue="admin@demo.com" disabled />
+            <Input id="email" type="email" value={profile.email} disabled />
             <p className="text-sm text-muted-foreground">
               Email не можна змінити
             </p>
           </div>
-          <Button>
+          <Button onClick={handleUpdateProfile} disabled={loading}>
             <Save className="mr-2 h-4 w-4" />
-            Зберегти зміни
+            {loading ? "Збереження..." : "Зберегти зміни"}
           </Button>
         </CardContent>
       </Card>
@@ -71,18 +185,26 @@ export default function Profile() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="currentPassword">Поточний пароль</Label>
-            <Input id="currentPassword" type="password" />
-          </div>
-          <div className="space-y-2">
             <Label htmlFor="newPassword">Новий пароль</Label>
-            <Input id="newPassword" type="password" />
+            <Input 
+              id="newPassword" 
+              type="password"
+              value={passwords.newPassword}
+              onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Підтвердіть пароль</Label>
-            <Input id="confirmPassword" type="password" />
+            <Input 
+              id="confirmPassword" 
+              type="password"
+              value={passwords.confirmPassword}
+              onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })}
+            />
           </div>
-          <Button variant="outline">Змінити пароль</Button>
+          <Button variant="outline" onClick={handleChangePassword} disabled={loading}>
+            {loading ? "Зміна..." : "Змінити пароль"}
+          </Button>
         </CardContent>
       </Card>
     </div>
