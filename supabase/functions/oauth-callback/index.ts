@@ -112,9 +112,9 @@ Deno.serve(async (req) => {
       : null;
 
     // Перевіряємо які scopes реально були надані
-    const grantedScopes = tokens.scope || integration.oauth_scopes;
+    const grantedScopes = tokens.scope || integration.oauth_scopes || '';
     const requestedScopes = integration.oauth_scopes?.split(' ') || [];
-    const grantedScopesArray = grantedScopes.split(' ');
+    const grantedScopesArray = grantedScopes ? grantedScopes.split(' ').filter((s: string) => s) : [];
     const missingScopes = requestedScopes.filter((scope: string) => !grantedScopesArray.includes(scope));
 
     console.log('Requested scopes:', requestedScopes);
