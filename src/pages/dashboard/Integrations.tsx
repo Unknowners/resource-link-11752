@@ -392,12 +392,20 @@ export default function Integrations() {
     try {
       const loadingToast = toast.loading('Перевірка API Token...');
       
+      // Отримуємо тип інтеграції
+      const { data: integration } = await supabase
+        .from('integrations')
+        .select('type')
+        .eq('id', integrationId)
+        .single();
+      
       const { data, error } = await supabase.functions.invoke('validate-api-token', {
         body: {
           integration_id: integrationId,
           email: email,
           api_token: apiToken,
           site_url: siteUrl,
+          integration_type: integration?.type,
         },
       });
 
@@ -808,30 +816,46 @@ export default function Integrations() {
                           onClick={async () => {
                             const { data: integrationData } = await supabase
                               .from('integrations')
-                              .select('api_email, api_token, oauth_authorize_url')
+                              .select('api_email, api_token, oauth_authorize_url, type')
                               .eq('id', integration.id)
                               .single();
                             
-                            if (!integrationData?.api_email || !integrationData?.api_token) {
-                              toast.error('В інтеграції відсутні email або API token');
+                            if (!integrationData?.api_token) {
+                              toast.error('В інтеграції відсутній API token');
                               return;
                             }
                             
-                            let siteUrl = integrationData.oauth_authorize_url as string | null;
-                            if (!siteUrl) {
-                              siteUrl = window.prompt('Введіть Atlassian Site URL (наприклад: yourcompany.atlassian.net)') || '';
-                              if (!siteUrl.trim()) {
-                                toast.error('Site URL обовʼязковий');
+                            // Для Notion не потрібен email і site URL
+                            if (integrationData.type === 'notion') {
+                              await handleValidateApiToken(
+                                integration.id, 
+                                '', // email не потрібен для Notion
+                                integrationData.api_token,
+                                undefined // site_url не потрібен для Notion
+                              );
+                            } else {
+                              // Для Atlassian потрібні email і site URL
+                              if (!integrationData?.api_email) {
+                                toast.error('В інтеграції відсутній email');
                                 return;
                               }
+                              
+                              let siteUrl = integrationData.oauth_authorize_url as string | null;
+                              if (!siteUrl) {
+                                siteUrl = window.prompt('Введіть Atlassian Site URL (наприклад: yourcompany.atlassian.net)') || '';
+                                if (!siteUrl.trim()) {
+                                  toast.error('Site URL обовʼязковий');
+                                  return;
+                                }
+                              }
+                              
+                              await handleValidateApiToken(
+                                integration.id, 
+                                integrationData.api_email, 
+                                integrationData.api_token,
+                                siteUrl
+                              );
                             }
-                            
-                            await handleValidateApiToken(
-                              integration.id, 
-                              integrationData.api_email, 
-                              integrationData.api_token,
-                              siteUrl
-                            );
                           }}
                         >
                           <RefreshCw className="mr-2 h-4 w-4" />
