@@ -477,7 +477,7 @@ export default function Staff() {
             <Plus className="mr-2 h-4 w-4" />
             Додати існуючого
           </Button>
-          <InviteUserDialog />
+          {/* <InviteUserDialog /> */}
         </div>
       </div>
 
