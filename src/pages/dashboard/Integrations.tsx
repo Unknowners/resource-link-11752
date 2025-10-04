@@ -1,59 +1,140 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, RefreshCw } from "lucide-react";
+import { CheckCircle2, XCircle, RefreshCw, Plus, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface Integration {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  last_sync_at: string | null;
+  error_message: string | null;
+  resource_count?: number;
+}
 
 export default function Integrations() {
-  const integrations = [
-    {
-      id: "jira",
-      name: "Jira",
-      description: "Project management and issue tracking",
-      status: "connected",
-      lastSync: "2 hours ago",
-      resourceCount: 8,
-    },
-    {
-      id: "confluence",
-      name: "Confluence",
-      description: "Team collaboration and documentation",
-      status: "connected",
-      lastSync: "1 hour ago",
-      resourceCount: 6,
-    },
-    {
-      id: "notion",
-      name: "Notion",
-      description: "All-in-one workspace",
-      status: "connected",
-      lastSync: "30 minutes ago",
-      resourceCount: 5,
-    },
-    {
-      id: "gdrive",
-      name: "Google Drive",
-      description: "Cloud storage and file sharing",
-      status: "error",
-      lastSync: "Failed",
-      resourceCount: 0,
-      error: "Authentication expired. Please reconnect.",
-    },
-  ];
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    type: "jira",
+  });
 
-  const availableIntegrations = [
-    {
-      id: "slack",
-      name: "Slack",
-      description: "Team communication platform",
-      comingSoon: true,
-    },
-    {
-      id: "github",
-      name: "GitHub",
-      description: "Code hosting and collaboration",
-      comingSoon: true,
-    },
-  ];
+  useEffect(() => {
+    loadIntegrations();
+  }, []);
+
+  const loadIntegrations = async () => {
+    try {
+      setLoading(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: member } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!member) return;
+      setOrganizationId(member.organization_id);
+
+      const { data: integrationsData, error } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('organization_id', member.organization_id);
+
+      if (error) throw error;
+
+      // Get resource counts
+      const { data: resources } = await supabase
+        .from('resources')
+        .select('integration')
+        .eq('organization_id', member.organization_id);
+
+      const integrationsWithCounts = (integrationsData || []).map(integration => ({
+        ...integration,
+        resource_count: resources?.filter(r => r.integration.toLowerCase() === integration.name.toLowerCase()).length || 0,
+      }));
+
+      setIntegrations(integrationsWithCounts);
+    } catch (error) {
+      console.error('Error loading integrations:', error);
+      toast.error("Помилка завантаження інтеграцій");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateIntegration = async () => {
+    if (!organizationId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('integrations')
+        .insert({
+          organization_id: organizationId,
+          name: formData.name,
+          type: formData.type,
+          status: 'connected',
+        });
+
+      if (error) throw error;
+
+      toast.success("Інтеграцію додано");
+      setIsDialogOpen(false);
+      setFormData({ name: "", type: "jira" });
+      loadIntegrations();
+    } catch (error) {
+      console.error('Error creating integration:', error);
+      toast.error("Помилка додавання інтеграції");
+    }
+  };
+
+  const handleDeleteIntegration = async (integrationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('integrations')
+        .delete()
+        .eq('id', integrationId);
+
+      if (error) throw error;
+
+      toast.success("Інтеграцію видалено");
+      loadIntegrations();
+    } catch (error) {
+      console.error('Error deleting integration:', error);
+      toast.error("Помилка видалення інтеграції");
+    }
+  };
+
+  const handleSync = async (integrationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('integrations')
+        .update({ last_sync_at: new Date().toISOString() })
+        .eq('id', integrationId);
+
+      if (error) throw error;
+
+      toast.success("Синхронізація виконана");
+      loadIntegrations();
+    } catch (error) {
+      console.error('Error syncing:', error);
+      toast.error("Помилка синхронізації");
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -61,34 +142,114 @@ export default function Integrations() {
         return (
           <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
             <CheckCircle2 className="mr-1 h-3 w-3" />
-            Connected
+            Підключено
           </Badge>
         );
       case "error":
         return (
           <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
             <XCircle className="mr-1 h-3 w-3" />
-            Error
+            Помилка
           </Badge>
         );
       default:
-        return <Badge variant="secondary">Disconnected</Badge>;
+        return <Badge variant="secondary">Відключено</Badge>;
     }
   };
 
+  const formatLastSync = (date: string | null) => {
+    if (!date) return "Ніколи";
+    const diff = Date.now() - new Date(date).getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor(diff / (1000 * 60));
+    
+    if (hours > 0) return `${hours} год тому`;
+    if (minutes > 0) return `${minutes} хв тому`;
+    return "Щойно";
+  };
+
   return (
-    <div className="p-8 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="mb-2">Integrations</h1>
-        <p className="text-muted-foreground">
-          Connect and manage your workspace integrations
-        </p>
+    <div className="p-4 md:p-8 space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+        <div>
+          <h1 className="mb-2">Інтеграції</h1>
+          <p className="text-muted-foreground">
+            Підключайте та керуйте інтеграціями робочого простору
+          </p>
+        </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Додати інтеграцію
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Додати нову інтеграцію</DialogTitle>
+              <DialogDescription>
+                Підключіть новий сервіс до організації
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="name">Назва</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Jira Production"
+                />
+              </div>
+              <div>
+                <Label htmlFor="type">Тип</Label>
+                <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="jira">Jira</SelectItem>
+                    <SelectItem value="confluence">Confluence</SelectItem>
+                    <SelectItem value="notion">Notion</SelectItem>
+                    <SelectItem value="gdrive">Google Drive</SelectItem>
+                    <SelectItem value="slack">Slack</SelectItem>
+                    <SelectItem value="github">GitHub</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                Скасувати
+              </Button>
+              <Button onClick={handleCreateIntegration} disabled={!formData.name}>
+                Додати
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Connected Integrations */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Connected Services</h2>
+      {loading ? (
+        <div className="p-8 text-center text-muted-foreground">
+          Завантаження...
+        </div>
+      ) : integrations.length === 0 ? (
+        <Card className="glass-card border-dashed">
+          <CardHeader className="text-center">
+            <CardTitle>Додайте першу інтеграцію</CardTitle>
+            <CardDescription>
+              Підключіть сервіси для синхронізації ресурсів
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button onClick={() => setIsDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Додати інтеграцію
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {integrations.map((integration) => (
             <Card key={integration.id}>
@@ -99,69 +260,51 @@ export default function Integrations() {
                       {integration.name}
                       {getStatusBadge(integration.status)}
                     </CardTitle>
-                    <CardDescription>{integration.description}</CardDescription>
+                    <CardDescription className="capitalize">{integration.type}</CardDescription>
                   </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleDeleteIntegration(integration.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
                 {integration.status === "error" ? (
                   <div className="space-y-4">
-                    <p className="text-sm text-destructive">{integration.error}</p>
+                    <p className="text-sm text-destructive">{integration.error_message}</p>
                     <Button variant="outline" className="w-full">
-                      Reconnect
+                      Перепідключити
                     </Button>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Last synced</span>
-                      <span className="font-medium">{integration.lastSync}</span>
+                      <span className="text-muted-foreground">Остання синхронізація</span>
+                      <span className="font-medium">{formatLastSync(integration.last_sync_at)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Resources</span>
-                      <span className="font-medium">{integration.resourceCount}</span>
+                      <span className="text-muted-foreground">Ресурсів</span>
+                      <span className="font-medium">{integration.resource_count}</span>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1">
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Sync Now
-                      </Button>
-                      <Button variant="outline" size="sm" className="flex-1">
-                        Settings
-                      </Button>
-                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => handleSync(integration.id)}
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Синхронізувати
+                    </Button>
                   </div>
                 )}
               </CardContent>
             </Card>
           ))}
         </div>
-      </div>
-
-      {/* Available Integrations */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Available Integrations</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {availableIntegrations.map((integration) => (
-            <Card key={integration.id} className="glass-card border-dashed">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  {integration.name}
-                  {integration.comingSoon && (
-                    <Badge variant="secondary">Coming Soon</Badge>
-                  )}
-                </CardTitle>
-                <CardDescription>{integration.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button variant="outline" className="w-full" disabled={integration.comingSoon}>
-                  {integration.comingSoon ? "Coming Soon" : "Connect"}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

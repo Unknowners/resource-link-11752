@@ -21,7 +21,7 @@ export type Database = {
           details: Json | null
           id: string
           ip_address: string | null
-          organization_id: string | null
+          organization_id: string
           resource_id: string | null
           resource_type: string | null
           user_agent: string | null
@@ -33,7 +33,7 @@ export type Database = {
           details?: Json | null
           id?: string
           ip_address?: string | null
-          organization_id?: string | null
+          organization_id: string
           resource_id?: string | null
           resource_type?: string | null
           user_agent?: string | null
@@ -45,7 +45,7 @@ export type Database = {
           details?: Json | null
           id?: string
           ip_address?: string | null
-          organization_id?: string | null
+          organization_id?: string
           resource_id?: string | null
           resource_type?: string | null
           user_agent?: string | null
@@ -118,6 +118,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "groups_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integrations: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          last_sync_at: string | null
+          name: string
+          organization_id: string
+          status: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          last_sync_at?: string | null
+          name: string
+          organization_id: string
+          status?: string
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          last_sync_at?: string | null
+          name?: string
+          organization_id?: string
+          status?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integrations_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
