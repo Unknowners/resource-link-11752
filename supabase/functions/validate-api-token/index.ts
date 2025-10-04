@@ -79,6 +79,94 @@ Deno.serve(async (req) => {
           const userData = await testResponse.json();
           console.log('Notion authentication successful:', userData);
           validationStatus = 'validated';
+          
+          // Синхронізуємо Notion pages якщо є integration_id
+          if (integration_id) {
+            const { data: integration } = await supabaseClient
+              .from('integrations')
+              .select('organization_id, name')
+              .eq('id', integration_id)
+              .single();
+
+            if (integration) {
+              console.log('Syncing Notion pages...');
+              
+              try {
+                const searchResponse = await fetch('https://api.notion.com/v1/search', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${api_token}`,
+                    'Notion-Version': '2022-06-28',
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    filter: { property: 'object', value: 'page' },
+                    page_size: 100,
+                  }),
+                });
+
+                if (searchResponse.ok) {
+                  const searchData = await searchResponse.json();
+                  const pages = searchData.results || [];
+                  
+                  // Фільтруємо тільки workspace pages (top-level)
+                  const workspacePages = pages.filter((page: any) => 
+                    !page.parent || 
+                    (page.parent.type === 'workspace' && page.parent.workspace === true)
+                  );
+                  
+                  console.log(`Found ${workspacePages.length} workspace pages`);
+                  
+                  const syncTime = new Date().toISOString();
+                  const resources = [];
+                  
+                  for (const page of workspacePages) {
+                    let pageName = 'Untitled';
+                    
+                    if (page.properties?.title?.title?.[0]?.plain_text) {
+                      pageName = page.properties.title.title[0].plain_text;
+                    } else if (page.properties?.Name?.title?.[0]?.plain_text) {
+                      pageName = page.properties.Name.title[0].plain_text;
+                    }
+                    
+                    resources.push({
+                      organization_id: integration.organization_id,
+                      name: pageName,
+                      type: 'notion_page',
+                      integration: integration.name,
+                      url: page.url,
+                      status: 'active',
+                      last_synced_at: syncTime,
+                    });
+                  }
+                  
+                  // Видаляємо старі Notion ресурси
+                  await supabaseClient
+                    .from('resources')
+                    .delete()
+                    .eq('integration', integration.name)
+                    .eq('type', 'notion_page');
+                  
+                  // Додаємо нові
+                  if (resources.length > 0) {
+                    await supabaseClient
+                      .from('resources')
+                      .insert(resources);
+                    
+                    console.log(`Synced ${resources.length} Notion pages`);
+                  }
+                  
+                  // Оновлюємо last_sync_at
+                  await supabaseClient
+                    .from('integrations')
+                    .update({ last_sync_at: syncTime })
+                    .eq('id', integration_id);
+                }
+              } catch (syncErr) {
+                console.error('Failed to sync Notion pages:', syncErr);
+              }
+            }
+          }
         } else {
           const errorText = await testResponse.text();
           console.error('Notion validation failed:', testResponse.status, errorText);
