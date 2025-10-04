@@ -29,11 +29,17 @@ export default function Profile() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profileData } = await supabase
+        const { data: profileData, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error loading profile:', error);
+          toast.error("Помилка завантаження профілю");
+          return;
+        }
 
         if (profileData) {
           setProfile({
@@ -42,10 +48,19 @@ export default function Profile() {
             email: profileData.email || user.email || "",
             company: profileData.company || "",
           });
+        } else {
+          // Profile doesn't exist yet, use data from auth user metadata
+          setProfile({
+            firstName: (user.user_metadata?.first_name as string) || "",
+            lastName: (user.user_metadata?.last_name as string) || "",
+            email: user.email || "",
+            company: (user.user_metadata?.company as string) || "",
+          });
         }
       }
     } catch (error) {
       console.error('Error loading profile:', error);
+      toast.error("Помилка завантаження профілю");
     }
   };
 
