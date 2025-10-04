@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Plus, MoreVertical, Trash2, Edit } from "lucide-react";
+import { Search, Plus, MoreVertical, Trash2, Edit, ChevronLeft, ChevronRight } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,11 +43,14 @@ export default function Staff() {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     loadStaff();
     loadGroups();
-  }, []);
+  }, [currentPage]);
 
   const loadStaff = async () => {
     try {
@@ -66,11 +69,23 @@ export default function Staff() {
       if (!member) return;
       setOrganizationId(member.organization_id);
 
-      // Get all members of the organization
+      // Get total count for pagination
+      const { count } = await supabase
+        .from('organization_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', member.organization_id);
+
+      setTotalCount(count || 0);
+
+      // Get paginated members
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
       const { data: members } = await supabase
         .from('organization_members')
         .select('user_id, role, status')
-        .eq('organization_id', member.organization_id);
+        .eq('organization_id', member.organization_id)
+        .range(from, to);
 
       if (!members) return;
 
@@ -303,11 +318,19 @@ export default function Staff() {
     }
   };
 
-  const filteredStaff = staff.filter(member =>
-    `${member.first_name} ${member.last_name} ${member.email}`
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase())
-  );
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
 
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0]}${lastName[0]}`;
@@ -375,7 +398,7 @@ export default function Staff() {
             <div className="p-8 text-center text-muted-foreground">
               Завантаження...
             </div>
-          ) : filteredStaff.length === 0 ? (
+          ) : staff.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
               Користувачів не знайдено
             </div>
@@ -392,7 +415,7 @@ export default function Staff() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStaff.map((user) => (
+                {staff.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -446,6 +469,33 @@ export default function Staff() {
             </Table>
           )}
         </CardContent>
+        {!loading && totalCount > itemsPerPage && (
+          <div className="flex items-center justify-between px-6 py-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Сторінка {currentPage} з {totalPages} ({totalCount} користувачів)
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Попередня
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+              >
+                Наступна
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Invite User Dialog */}

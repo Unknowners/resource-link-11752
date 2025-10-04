@@ -4,7 +4,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -23,10 +24,13 @@ export default function Audit() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 20;
 
   useEffect(() => {
     loadAuditLogs();
-  }, []);
+  }, [currentPage, typeFilter]);
 
   const loadAuditLogs = async () => {
     try {
@@ -43,12 +47,28 @@ export default function Audit() {
 
       if (!member) return;
 
-      const { data: logs, error } = await supabase
+      // Build query
+      let query = supabase
         .from('audit_logs')
-        .select('*')
-        .eq('organization_id', member.organization_id)
+        .select('*', { count: 'exact' })
+        .eq('organization_id', member.organization_id);
+
+      // Apply type filter
+      if (typeFilter !== 'all') {
+        query = query.eq('resource_type', typeFilter);
+      }
+
+      // Get total count
+      const { count } = await query;
+      setTotalCount(count || 0);
+
+      // Get paginated data
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      const { data: logs, error } = await query
         .order('created_at', { ascending: false })
-        .limit(100);
+        .range(from, to);
 
       if (error) throw error;
 
@@ -79,10 +99,10 @@ export default function Audit() {
       event.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.resource_type?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesType = typeFilter === "all" || event.resource_type === typeFilter;
-    
-    return matchesSearch && matchesType;
+    return matchesSearch;
   });
+
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   const getActionBadge = (action: string) => {
     const colors: Record<string, string> = {
@@ -197,6 +217,33 @@ export default function Audit() {
             </Table>
           )}
         </CardContent>
+        {!loading && totalCount > itemsPerPage && (
+          <div className="flex items-center justify-between px-6 py-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Сторінка {currentPage} з {totalPages} ({totalCount} подій)
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Попередня
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Наступна
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

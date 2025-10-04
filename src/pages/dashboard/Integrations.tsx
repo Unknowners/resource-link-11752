@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, XCircle, RefreshCw, Plus, Trash2, Info } from "lucide-react";
+import { CheckCircle2, XCircle, RefreshCw, Plus, Trash2, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { OAuthPresets, OAuthPreset } from "@/components/dashboard/OAuthPresets";
@@ -43,6 +43,9 @@ export default function Integrations() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [userCredentials, setUserCredentials] = useState<Map<string, IntegrationCredential>>(new Map());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 10;
   const [formData, setFormData] = useState({
     name: "",
     type: "",
@@ -85,7 +88,7 @@ export default function Integrations() {
       sessionStorage.removeItem('oauth_integration_id');
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []);
+  }, [currentPage]);
 
   const loadIntegrations = async () => {
     try {
@@ -103,10 +106,23 @@ export default function Integrations() {
       if (!member) return;
       setOrganizationId(member.organization_id);
 
+      // Get total count
+      const { count } = await supabase
+        .from('integrations')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', member.organization_id);
+
+      setTotalCount(count || 0);
+
+      // Get paginated data
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
       const { data: integrationsData, error } = await supabase
         .from('integrations')
         .select('*')
-        .eq('organization_id', member.organization_id);
+        .eq('organization_id', member.organization_id)
+        .range(from, to);
 
       if (error) throw error;
 
@@ -456,6 +472,8 @@ export default function Integrations() {
     };
   };
 
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "connected":
@@ -681,148 +699,176 @@ export default function Integrations() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {integrations.map((integration) => (
-            <Card key={integration.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      {integration.name}
-                      {getStatusBadge(integration.status)}
-                    </CardTitle>
-                    <CardDescription>{integration.type}</CardDescription>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {integrations.map((integration) => (
+              <Card key={integration.id}>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        {integration.name}
+                        {getStatusBadge(integration.status)}
+                      </CardTitle>
+                      <CardDescription>{integration.type}</CardDescription>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteIntegration(integration.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteIntegration(integration.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Остання синхронізація</span>
-                    <span className="font-medium">
-                      {integration.last_sync_at 
-                        ? new Date(integration.last_sync_at).toLocaleString('uk-UA')
-                        : 'Ніколи'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Ресурсів</span>
-                    <span className="font-medium">{integration.resource_count}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Ваш статус</span>
-                    {isUserConnected(integration.id) ? (
-                      <div className="flex flex-col items-end gap-1">
-                        {getUserConnectionStatus(integration.id)?.status === 'validated' ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                            <CheckCircle2 className="mr-1 h-3 w-3" />
-                            Підключено і працює
-                          </Badge>
-                        ) : getUserConnectionStatus(integration.id)?.status === 'error' ? (
-                          <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                            <XCircle className="mr-1 h-3 w-3" />
-                            Підключено з помилкою
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                            <RefreshCw className="mr-1 h-3 w-3" />
-                            Перевірка...
-                          </Badge>
-                        )}
-                        {getUserConnectionStatus(integration.id)?.error && (
-                          <span className="text-xs text-destructive">
-                            {getUserConnectionStatus(integration.id)?.error}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <Badge variant="secondary">Не підключено</Badge>
-                    )}
-                  </div>
-                  
-                  {integration.auth_type === 'api_token' ? (
-                    <div className="space-y-2">
-                      <Button 
-                        variant="outline" 
-                        className="w-full"
-                        onClick={async () => {
-                          // Знаходимо email, token та site URL з integration
-                          const { data: integrationData } = await supabase
-                            .from('integrations')
-                            .select('api_email, api_token, oauth_authorize_url')
-                            .eq('id', integration.id)
-                            .single();
-                          
-                          if (!integrationData?.api_email || !integrationData?.api_token) {
-                            toast.error('В інтеграції відсутні email або API token');
-                            return;
-                          }
-                          
-                          let siteUrl = integrationData.oauth_authorize_url as string | null;
-                          if (!siteUrl) {
-                            siteUrl = window.prompt('Введіть Atlassian Site URL (наприклад: yourcompany.atlassian.net)') || '';
-                            if (!siteUrl.trim()) {
-                              toast.error('Site URL обовʼязковий');
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Остання синхронізація</span>
+                      <span className="font-medium">
+                        {integration.last_sync_at 
+                          ? new Date(integration.last_sync_at).toLocaleString('uk-UA')
+                          : 'Ніколи'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Ресурсів</span>
+                      <span className="font-medium">{integration.resource_count}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Ваш статус</span>
+                      {isUserConnected(integration.id) ? (
+                        <div className="flex flex-col items-end gap-1">
+                          {getUserConnectionStatus(integration.id)?.status === 'validated' ? (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              <CheckCircle2 className="mr-1 h-3 w-3" />
+                              Підключено і працює
+                            </Badge>
+                          ) : getUserConnectionStatus(integration.id)?.status === 'error' ? (
+                            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                              <XCircle className="mr-1 h-3 w-3" />
+                              Підключено з помилкою
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                              <RefreshCw className="mr-1 h-3 w-3" />
+                              Перевірка...
+                            </Badge>
+                          )}
+                          {getUserConnectionStatus(integration.id)?.error && (
+                            <span className="text-xs text-destructive">
+                              {getUserConnectionStatus(integration.id)?.error}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <Badge variant="secondary">Не підключено</Badge>
+                      )}
+                    </div>
+                    
+                    {integration.auth_type === 'api_token' ? (
+                      <div className="space-y-2">
+                        <Button 
+                          variant="outline" 
+                          className="w-full"
+                          onClick={async () => {
+                            const { data: integrationData } = await supabase
+                              .from('integrations')
+                              .select('api_email, api_token, oauth_authorize_url')
+                              .eq('id', integration.id)
+                              .single();
+                            
+                            if (!integrationData?.api_email || !integrationData?.api_token) {
+                              toast.error('В інтеграції відсутні email або API token');
                               return;
                             }
-                          }
-                          
-                          await handleValidateApiToken(
-                            integration.id, 
-                            integrationData.api_email, 
-                            integrationData.api_token,
-                            siteUrl
-                          );
-                        }}
-                      >
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        {isUserConnected(integration.id) ? 'Оновити статус' : 'Підключити'}
-                      </Button>
+                            
+                            let siteUrl = integrationData.oauth_authorize_url as string | null;
+                            if (!siteUrl) {
+                              siteUrl = window.prompt('Введіть Atlassian Site URL (наприклад: yourcompany.atlassian.net)') || '';
+                              if (!siteUrl.trim()) {
+                                toast.error('Site URL обовʼязковий');
+                                return;
+                              }
+                            }
+                            
+                            await handleValidateApiToken(
+                              integration.id, 
+                              integrationData.api_email, 
+                              integrationData.api_token,
+                              siteUrl
+                            );
+                          }}
+                        >
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          {isUserConnected(integration.id) ? 'Оновити статус' : 'Підключити'}
+                        </Button>
 
-                      {isUserConnected(integration.id) && (
+                        {isUserConnected(integration.id) && (
+                          <Button 
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => handleDisconnectIntegration(integration.id)}
+                          >
+                            Відключити
+                          </Button>
+                        )}
+                      </div>
+                    ) : integration.oauth_authorize_url ? (
+                      isUserConnected(integration.id) ? (
                         <Button 
-                          variant="outline"
+                          variant="outline" 
                           className="w-full"
                           onClick={() => handleDisconnectIntegration(integration.id)}
                         >
-                          Відключити
+                          Відключити мій акаунт
                         </Button>
-                      )}
-                    </div>
-                  ) : integration.oauth_authorize_url ? (
-                    isUserConnected(integration.id) ? (
-                      <Button 
-                        variant="outline" 
-                        className="w-full"
-                        onClick={() => handleDisconnectIntegration(integration.id)}
-                      >
-                        Відключити мій акаунт
-                      </Button>
+                      ) : (
+                        <Button 
+                          className="w-full"
+                          onClick={() => handleConnectIntegration(integration)}
+                        >
+                          Підключити мій акаунт
+                        </Button>
+                      )
                     ) : (
-                      <Button 
-                        className="w-full"
-                        onClick={() => handleConnectIntegration(integration)}
-                      >
-                        Підключити мій акаунт
-                      </Button>
-                    )
-                  ) : (
-                    <p className="text-xs text-muted-foreground text-center">
-                      Налаштуйте інтеграцію для підключення
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                      <p className="text-xs text-muted-foreground text-center">
+                        Налаштуйте інтеграцію для підключення
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          {totalCount > itemsPerPage && (
+            <div className="flex items-center justify-between mt-6">
+              <div className="text-sm text-muted-foreground">
+                Сторінка {currentPage} з {totalPages} ({totalCount} інтеграцій)
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Попередня
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Наступна
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
