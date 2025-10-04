@@ -139,6 +139,7 @@ export default function Resources() {
           name: formData.name,
           type: formData.type,
           integration: selectedIntegration.name,
+          integration_id: formData.integration_id,
           url: formData.url,
         });
 
