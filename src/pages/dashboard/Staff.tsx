@@ -19,6 +19,7 @@ interface StaffMember {
   last_name: string | null;
   email: string | null;
   role: string;
+  status: string;
   groups: string[];
 }
 
@@ -37,6 +38,8 @@ export default function Staff() {
   const [editingUser, setEditingUser] = useState<StaffMember | null>(null);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+  const [editingRole, setEditingRole] = useState<string>("member");
+  const [editingStatus, setEditingStatus] = useState<string>("active");
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
@@ -66,7 +69,7 @@ export default function Staff() {
       // Get all members of the organization
       const { data: members } = await supabase
         .from('organization_members')
-        .select('user_id, role')
+        .select('user_id, role, status')
         .eq('organization_id', member.organization_id);
 
       if (!members) return;
@@ -87,7 +90,7 @@ export default function Staff() {
 
       // Combine data
       const staffData: StaffMember[] = profiles.map(profile => {
-        const memberRole = members.find(m => m.user_id === profile.id);
+        const memberData = members.find(m => m.user_id === profile.id);
         const userGroups = groupMemberships
           ?.filter(gm => gm.user_id === profile.id)
           .map(gm => (gm.groups as any)?.name)
@@ -98,7 +101,8 @@ export default function Staff() {
           first_name: profile.first_name,
           last_name: profile.last_name,
           email: profile.email,
-          role: memberRole?.role || 'member',
+          role: memberData?.role || 'member',
+          status: memberData?.status || 'active',
           groups: userGroups
         };
       });
@@ -140,6 +144,8 @@ export default function Staff() {
 
   const handleEditUser = async (user: StaffMember) => {
     setEditingUser(user);
+    setEditingRole(user.role);
+    setEditingStatus(user.status);
     
     // Get current user's groups
     const { data: userGroups } = await supabase
@@ -152,10 +158,22 @@ export default function Staff() {
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveUserGroups = async () => {
-    if (!editingUser) return;
+  const handleSaveUser = async () => {
+    if (!editingUser || !organizationId) return;
 
     try {
+      // Update role and status
+      const { error: updateError } = await supabase
+        .from('organization_members')
+        .update({ 
+          role: editingRole,
+          status: editingStatus
+        })
+        .eq('user_id', editingUser.id)
+        .eq('organization_id', organizationId);
+
+      if (updateError) throw updateError;
+
       // Get current groups
       const { data: currentGroups } = await supabase
         .from('group_members')
@@ -191,13 +209,13 @@ export default function Staff() {
         if (removeError) throw removeError;
       }
 
-      toast.success("Групи користувача оновлено");
+      toast.success("Користувача оновлено");
       setIsEditDialogOpen(false);
       setEditingUser(null);
       loadStaff();
     } catch (error) {
-      console.error('Error updating user groups:', error);
-      toast.error("Помилка оновлення груп");
+      console.error('Error updating user:', error);
+      toast.error("Помилка оновлення користувача");
     }
   };
 
@@ -308,13 +326,13 @@ export default function Staff() {
   };
 
   const getStatusBadge = (status: string) => {
-    return status === "Active" ? (
+    return status === "active" ? (
       <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-        Active
+        Активний
       </Badge>
     ) : (
-      <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-        Pending
+      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+        Заблокований
       </Badge>
     );
   };
@@ -368,6 +386,7 @@ export default function Staff() {
                   <TableHead>Користувач</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Роль</TableHead>
+                  <TableHead>Статус</TableHead>
                   <TableHead>Групи</TableHead>
                   <TableHead className="text-right">Дії</TableHead>
                 </TableRow>
@@ -389,6 +408,7 @@ export default function Staff() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{user.email}</TableCell>
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
+                    <TableCell>{getStatusBadge(user.status)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
                         {user.groups.map((group, index) => (
@@ -478,10 +498,36 @@ export default function Staff() {
           <DialogHeader>
             <DialogTitle>Редагувати користувача</DialogTitle>
             <DialogDescription>
-              Управління групами для {editingUser?.first_name} {editingUser?.last_name}
+              Управління для {editingUser?.first_name} {editingUser?.last_name}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-role">Роль</Label>
+              <select
+                id="edit-role"
+                className="w-full border rounded-md px-3 py-2 text-sm"
+                value={editingRole}
+                onChange={(e) => setEditingRole(e.target.value)}
+              >
+                <option value="member">Member</option>
+                <option value="owner">Owner</option>
+              </select>
+            </div>
+            
+            <div>
+              <Label htmlFor="edit-status">Статус</Label>
+              <select
+                id="edit-status"
+                className="w-full border rounded-md px-3 py-2 text-sm"
+                value={editingStatus}
+                onChange={(e) => setEditingStatus(e.target.value)}
+              >
+                <option value="active">Активний</option>
+                <option value="blocked">Заблокований</option>
+              </select>
+            </div>
+
             <div>
               <Label className="text-base mb-3 block">Групи</Label>
               <div className="space-y-2 max-h-64 overflow-y-auto border rounded-md p-3">
@@ -511,11 +557,12 @@ export default function Staff() {
                 )}
               </div>
             </div>
+            
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Скасувати
               </Button>
-              <Button onClick={handleSaveUserGroups}>
+              <Button onClick={handleSaveUser}>
                 Зберегти
               </Button>
             </div>
