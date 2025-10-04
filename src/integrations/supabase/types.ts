@@ -446,6 +446,7 @@ export type Database = {
           created_at: string | null
           id: string
           integration: string
+          integration_id: string
           last_synced_at: string | null
           name: string
           organization_id: string
@@ -458,6 +459,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           integration: string
+          integration_id: string
           last_synced_at?: string | null
           name: string
           organization_id: string
@@ -470,6 +472,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           integration?: string
+          integration_id?: string
           last_synced_at?: string | null
           name?: string
           organization_id?: string
@@ -479,6 +482,13 @@ export type Database = {
           url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "resources_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "resources_organization_id_fkey"
             columns: ["organization_id"]
