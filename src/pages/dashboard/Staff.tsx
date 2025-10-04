@@ -37,6 +37,9 @@ export default function Staff() {
   const [editingUser, setEditingUser] = useState<StaffMember | null>(null);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("member");
 
   useEffect(() => {
     loadStaff();
@@ -208,6 +211,60 @@ export default function Staff() {
     setSelectedGroups(newSelectedGroups);
   };
 
+  const handleInviteUser = async () => {
+    if (!organizationId || !inviteEmail) {
+      toast.error("Введіть email");
+      return;
+    }
+
+    try {
+      // Check if user already exists in profiles
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', inviteEmail)
+        .maybeSingle();
+
+      if (!existingProfile) {
+        toast.error("Користувач з таким email не зареєстрований в системі");
+        return;
+      }
+
+      // Check if user is already a member
+      const { data: existingMember } = await supabase
+        .from('organization_members')
+        .select('id')
+        .eq('user_id', existingProfile.id)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+
+      if (existingMember) {
+        toast.error("Користувач вже є членом організації");
+        return;
+      }
+
+      // Add user to organization
+      const { error } = await supabase
+        .from('organization_members')
+        .insert({
+          user_id: existingProfile.id,
+          organization_id: organizationId,
+          role: inviteRole
+        });
+
+      if (error) throw error;
+
+      toast.success("Користувача додано до організації");
+      setIsInviteDialogOpen(false);
+      setInviteEmail("");
+      setInviteRole("member");
+      loadStaff();
+    } catch (error) {
+      console.error('Error inviting user:', error);
+      toast.error("Помилка додавання користувача");
+    }
+  };
+
   const handleRemoveMember = async (userId: string) => {
     if (!organizationId) return;
     
@@ -268,7 +325,7 @@ export default function Staff() {
             Manage team members and their access
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setIsInviteDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Invite User
         </Button>
@@ -366,6 +423,50 @@ export default function Staff() {
           )}
         </CardContent>
       </Card>
+
+      {/* Invite User Dialog */}
+      <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Запросити користувача</DialogTitle>
+            <DialogDescription>
+              Додайте існуючого користувача до вашої організації
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="user@example.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="role">Роль</Label>
+              <select
+                id="role"
+                className="w-full border rounded-md px-3 py-2 text-sm"
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+              >
+                <option value="member">Member</option>
+                <option value="owner">Owner</option>
+              </select>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setIsInviteDialogOpen(false)}>
+                Скасувати
+              </Button>
+              <Button onClick={handleInviteUser}>
+                Запросити
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
