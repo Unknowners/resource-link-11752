@@ -68,6 +68,27 @@ Deno.serve(async (req) => {
           } else {
             validationStatus = 'validated';
             console.log('Available sites:', resources.map((r: any) => r.name).join(', '));
+            
+            // Синхронізуємо ресурси в БД
+            for (const resource of resources) {
+              const { error: resourceError } = await supabaseClient
+                .from('resources')
+                .upsert({
+                  organization_id: integration.organization_id,
+                  name: resource.name,
+                  type: 'atlassian_site',
+                  integration: integration.name,
+                  url: resource.url,
+                }, {
+                  onConflict: 'organization_id,name,integration',
+                });
+              
+              if (resourceError) {
+                console.error('Failed to sync resource:', resource.name, resourceError);
+              }
+            }
+            
+            console.log(`Synced ${resources.length} Atlassian sites to database`);
           }
         } else {
           const errorText = await testResponse.text();

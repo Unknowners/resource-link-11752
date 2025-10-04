@@ -650,19 +650,45 @@ export default function Integrations() {
                   </div>
                   
                   {integration.auth_type === 'api_token' ? (
-                    isUserConnected(integration.id) ? (
+                    <div className="space-y-2">
+                      {isUserConnected(integration.id) && (
+                        <Button 
+                          variant="outline" 
+                          className="w-full"
+                          onClick={async () => {
+                            // Знаходимо email та token з integration
+                            const { data: integrationData } = await supabase
+                              .from('integrations')
+                              .select('api_email, api_token')
+                              .eq('id', integration.id)
+                              .single();
+                            
+                            if (integrationData?.api_email && integrationData?.api_token) {
+                              await handleValidateApiToken(
+                                integration.id, 
+                                integrationData.api_email, 
+                                integrationData.api_token
+                              );
+                            } else {
+                              toast.error('Credentials не знайдено');
+                            }
+                          }}
+                        >
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Перевірити підключення
+                        </Button>
+                      )}
                       <Button 
-                        variant="outline" 
+                        variant={isUserConnected(integration.id) ? "outline" : "default"}
                         className="w-full"
-                        onClick={() => handleDisconnectIntegration(integration.id)}
+                        onClick={() => isUserConnected(integration.id) 
+                          ? handleDisconnectIntegration(integration.id)
+                          : toast.info('API Token вже підключено на рівні організації')
+                        }
                       >
-                        Відключити
+                        {isUserConnected(integration.id) ? 'Відключити' : 'Підключено'}
                       </Button>
-                    ) : (
-                      <p className="text-xs text-muted-foreground text-center">
-                        API Token буде автоматично перевірено при створенні
-                      </p>
-                    )
+                    </div>
                   ) : integration.oauth_authorize_url ? (
                     isUserConnected(integration.id) ? (
                       <Button 
