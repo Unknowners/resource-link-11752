@@ -387,7 +387,7 @@ export default function GroupDetail() {
                       Додати
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-w-2xl">
                     <DialogHeader>
                       <DialogTitle>Додати учасника</DialogTitle>
                       <DialogDescription>
@@ -515,7 +515,7 @@ export default function GroupDetail() {
                       Додати
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-w-2xl">
                     <DialogHeader>
                       <DialogTitle>Додати ресурс</DialogTitle>
                       <DialogDescription>
