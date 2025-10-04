@@ -11,7 +11,7 @@ export interface OAuthPreset {
 }
 
 const getRedirectUrl = () => {
-  return `${window.location.origin}/dashboard/integrations`;
+  return `${window.location.origin}/app/integrations`;
 };
 
 export const OAUTH_PRESETS: OAuthPreset[] = [
@@ -96,15 +96,15 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
 2. New integration → Дайте назву → Submit
 3. Integration type → Public
 4. Заповніть обов'язкові поля:
-   • Company name: назва вашої компанії
+   • Company name: Documinds (або ваша назва)
    • Website: https://documinds.online
-   • Tagline: короткий опис (наприклад: "Resource access management")
+   • Tagline: Resource access management system
    • Privacy Policy URL: https://documinds.online/privacy
    • Terms of Use URL: https://documinds.online/terms
    • Email: ваш email
-   • Logo: завантажте логотип вашої компанії
-5. Redirect URIs → Add URI: ${getRedirectUrl()}
-6. Capabilities → Оберіть потрібні (Read content, Read user тощо)
+   • Logo: завантажте логотип
+5. Redirect URIs → Add URI: https://documinds.online/app/integrations
+6. Capabilities → Read content, Read user, Read comments
 7. Distribution → Make public
 8. Скопіюйте OAuth client ID та OAuth client secret
 
