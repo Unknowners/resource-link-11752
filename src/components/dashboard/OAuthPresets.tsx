@@ -15,16 +15,19 @@ const getRedirectUrl = () => {
 
 export const OAUTH_PRESETS: OAuthPreset[] = [
   {
-    name: "Jira Cloud",
-    type: "jira",
+    name: "Atlassian (Jira, Confluence)",
+    type: "atlassian",
     oauth_authorize_url: "https://auth.atlassian.com/authorize",
     oauth_token_url: "https://auth.atlassian.com/oauth/token",
-    oauth_scopes: "read:jira-work read:jira-user offline_access",
+    oauth_scopes: "read:jira-work read:jira-user read:confluence-content.all offline_access",
     instructions: `1. Створіть OAuth 2.0 app на https://developer.atlassian.com/console/myapps
 2. Натисніть "Create" → "OAuth 2.0 integration"
 3. Додайте Callback URL: ${getRedirectUrl()}
-4. Permissions: Jira API → Configure → Add "read:jira-work", "read:jira-user", "offline_access"
-5. Скопіюйте Client ID та Secret сюди`
+4. Permissions → Configure:
+   • Jira API: read:jira-work, read:jira-user
+   • Confluence API: read:confluence-content.all
+   • Classic scopes: offline_access
+5. Settings → копіюйте Client ID та Secret сюди`
   },
   {
     name: "Google Drive",

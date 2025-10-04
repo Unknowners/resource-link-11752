@@ -371,33 +371,41 @@ export default function Integrations() {
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="oauth_authorize_url">Authorization URL</Label>
-                  <Input
-                    id="oauth_authorize_url"
-                    value={formData.oauth_authorize_url}
-                    onChange={(e) => setFormData({ ...formData, oauth_authorize_url: e.target.value })}
-                  />
-                </div>
+                <div className="space-y-2 pt-2 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    OAuth конфігурація (автоматично заповнено):
+                  </p>
+                  
+                  <div>
+                    <Label htmlFor="oauth_authorize_url" className="text-xs text-muted-foreground">Authorization URL</Label>
+                    <Input
+                      id="oauth_authorize_url"
+                      value={formData.oauth_authorize_url}
+                      readOnly
+                      className="bg-muted text-sm"
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="oauth_token_url">Token URL</Label>
-                  <Input
-                    id="oauth_token_url"
-                    value={formData.oauth_token_url}
-                    onChange={(e) => setFormData({ ...formData, oauth_token_url: e.target.value })}
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="oauth_token_url" className="text-xs text-muted-foreground">Token URL</Label>
+                    <Input
+                      id="oauth_token_url"
+                      value={formData.oauth_token_url}
+                      readOnly
+                      className="bg-muted text-sm"
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="oauth_scopes">OAuth Scopes</Label>
-                  <Textarea
-                    id="oauth_scopes"
-                    value={formData.oauth_scopes}
-                    onChange={(e) => setFormData({ ...formData, oauth_scopes: e.target.value })}
-                    placeholder="read:user write:data"
-                    rows={2}
-                  />
+                  <div>
+                    <Label htmlFor="oauth_scopes" className="text-xs text-muted-foreground">OAuth Scopes</Label>
+                    <Textarea
+                      id="oauth_scopes"
+                      value={formData.oauth_scopes}
+                      readOnly
+                      className="bg-muted text-sm"
+                      rows={2}
+                    />
+                  </div>
                 </div>
               </div>
             )}
