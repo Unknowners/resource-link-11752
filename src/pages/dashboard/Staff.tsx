@@ -367,19 +367,21 @@ export default function Staff() {
     if (!organizationId) return;
     
     try {
-      const { error } = await supabase
-        .from('organization_members')
-        .delete()
-        .eq('user_id', userId)
-        .eq('organization_id', organizationId);
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { userId },
+      });
 
       if (error) throw error;
 
-      toast.success("Користувача видалено");
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast.success("Користувача видалено повністю");
       loadStaff();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error removing member:', error);
-      toast.error("Помилка видалення користувача");
+      toast.error(error.message || "Помилка видалення користувача");
     }
   };
 
