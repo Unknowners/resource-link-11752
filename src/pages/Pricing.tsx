@@ -56,16 +56,16 @@ export default function Pricing() {
   return (
     <div className="flex flex-col">
       {/* Header */}
-      <section className="py-24 sm:py-32 lg:py-40 relative overflow-hidden">
+      <section className="py-16 sm:py-24 md:py-32 lg:py-40 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="mx-auto max-w-4xl text-center">
-            <h1 className="mb-6 font-display">
+            <h1 className="mb-4 sm:mb-6 font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl">
               <span className="gradient-text">Прості та прозорі</span>
               <br />
               ціни
             </h1>
-            <p className="text-xl text-muted-foreground leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed px-4 sm:px-0">
               Оберіть план, що підходить вашій організації. Усі плани включають основні функції.
             </p>
           </div>
@@ -73,9 +73,9 @@ export default function Pricing() {
       </section>
 
       {/* Pricing Cards */}
-      <section className="py-20 lg:py-24">
+      <section className="py-16 sm:py-20 lg:py-24">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-7xl mx-auto">
             {plans.map((plan) => (
               <Card
                 key={plan.name}

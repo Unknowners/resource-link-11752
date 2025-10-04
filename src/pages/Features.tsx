@@ -80,16 +80,16 @@ export default function Features() {
   return (
     <div className="flex flex-col">
       {/* Header */}
-      <section className="py-24 sm:py-32 lg:py-40 relative overflow-hidden">
+      <section className="py-16 sm:py-24 md:py-32 lg:py-40 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="mx-auto max-w-4xl text-center">
-            <h1 className="mb-6 font-display">
+            <h1 className="mb-4 sm:mb-6 font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl">
               <span className="gradient-text">Потужні можливості</span>
               <br />
               для сучасних команд
             </h1>
-            <p className="text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto px-4 sm:px-0">
               Все необхідне для управління доступами та інтеграціями робочого простору на будь-якому масштабі
             </p>
           </div>
@@ -97,9 +97,9 @@ export default function Features() {
       </section>
 
       {/* Features Grid */}
-      <section className="py-20 lg:py-24">
+      <section className="py-16 sm:py-20 lg:py-24">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {features.map((feature) => {
               const Icon = feature.icon;
               return (
@@ -123,16 +123,16 @@ export default function Features() {
       </section>
 
       {/* How It Works */}
-      <section className="py-24 lg:py-32 bg-secondary/30">
+      <section className="py-16 sm:py-20 lg:py-32 bg-secondary/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-20">
-            <h2 className="mb-6 font-display">Як це працює</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          <div className="text-center mb-12 sm:mb-16 lg:mb-20">
+            <h2 className="mb-4 sm:mb-6 font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl">Як це працює</h2>
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto px-4 sm:px-0">
               Розпочніть роботу за декілька хвилин з простим процесом налаштування
             </p>
           </div>
 
-          <div className="max-w-4xl mx-auto space-y-12">
+          <div className="max-w-4xl mx-auto space-y-8 sm:space-y-12">
             {[
               {
                 step: "1",
@@ -159,13 +159,13 @@ export default function Features() {
                 gradient: "from-orange-500 to-red-500",
               },
             ].map((item) => (
-              <div key={item.step} className="flex gap-8 items-start group">
-                <div className={`flex-shrink-0 w-16 h-16 rounded-2xl bg-gradient-to-br ${item.gradient} flex items-center justify-center font-bold text-2xl text-white shadow-lg group-hover:scale-110 transition-transform`}>
+              <div key={item.step} className="flex flex-col sm:flex-row gap-4 sm:gap-8 items-start group">
+                <div className={`flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br ${item.gradient} flex items-center justify-center font-bold text-xl sm:text-2xl text-white shadow-lg group-hover:scale-110 transition-transform`}>
                   {item.step}
                 </div>
                 <div className="flex-1">
-                  <h3 className="mb-3 text-2xl font-display">{item.title}</h3>
-                  <p className="text-muted-foreground text-lg leading-relaxed">
+                  <h3 className="mb-2 sm:mb-3 text-xl sm:text-2xl font-display">{item.title}</h3>
+                  <p className="text-muted-foreground text-base sm:text-lg leading-relaxed">
                     {item.description}
                   </p>
                 </div>
