@@ -58,7 +58,7 @@ serve(async (req) => {
       resources: JSON.stringify(resources || []),
     });
 
-    const url = `https://documindsonline.app.n8n.cloud/webhook-test/94277c56-d3f1-4d6f-b143-26afefe0bcca?${params.toString()}`;
+    const url = `https://documindsonline.app.n8n.cloud/webhook/94277c56-d3f1-4d6f-b143-26afefe0bcca?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',
