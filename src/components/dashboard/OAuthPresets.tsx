@@ -97,10 +97,10 @@ export const OAUTH_PRESETS: OAuthPreset[] = [
 3. Integration type → Public
 4. Заповніть обов'язкові поля:
    • Company name: назва вашої компанії
-   • Website: ваш сайт (наприклад: https://yourcompany.com)
+   • Website: https://documinds.online
    • Tagline: короткий опис (наприклад: "Resource access management")
-   • Privacy Policy URL: ${window.location.origin}/privacy
-   • Terms of Use URL: ${window.location.origin}/terms
+   • Privacy Policy URL: https://documinds.online/privacy
+   • Terms of Use URL: https://documinds.online/terms
    • Email: ваш email
    • Logo: завантажте логотип вашої компанії
 5. Redirect URIs → Add URI: ${getRedirectUrl()}
