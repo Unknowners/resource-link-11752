@@ -74,7 +74,7 @@ export default function VideoOnboarding() {
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-heygen-video', {
-        body: { text: scriptText }
+        body: { text: scriptText, language: 'uk' }
       });
 
       if (error) throw error;

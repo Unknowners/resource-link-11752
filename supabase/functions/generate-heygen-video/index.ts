@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text, avatarId } = await req.json();
+    const { text, avatarId, voiceId, language } = await req.json();
 
     if (!text) {
       throw new Error('Text is required');
@@ -20,6 +20,33 @@ serve(async (req) => {
     const heygenApiKey = Deno.env.get('HEYGEN_API_KEY');
     if (!heygenApiKey) {
       throw new Error('HEYGEN_API_KEY is not configured');
+    }
+
+    // Resolve a valid voice_id
+    let resolvedVoiceId = voiceId as string | undefined;
+    if (!resolvedVoiceId) {
+      try {
+        const voicesRes = await fetch('https://api.heygen.com/v2/voices', {
+          method: 'GET',
+          headers: {
+            'X-Api-Key': heygenApiKey,
+          },
+        });
+        if (voicesRes.ok) {
+          const voicesData = await voicesRes.json();
+          const voices = voicesData?.voices ?? [];
+          // Prefer requested language, otherwise try Ukrainian, then English, then first available
+          const langPref = (language || '').toLowerCase();
+          const pickByLang = (lang: string) => voices.find((v: any) => (v.language || '').toLowerCase().includes(lang));
+          resolvedVoiceId =
+            (langPref && pickByLang(langPref))?.voice_id ||
+            pickByLang('uk')?.voice_id ||
+            pickByLang('en')?.voice_id ||
+            voices[0]?.voice_id;
+        }
+      } catch (e) {
+        console.warn('Failed to fetch HeyGen voices, will let API choose default if possible:', e);
+      }
     }
 
     // Create video generation request
@@ -39,7 +66,7 @@ serve(async (req) => {
           voice: {
             type: 'text',
             input_text: text,
-            voice_id: 'bf39d0e71bd54a42b08ae1c208fe0a0f', // Default Ukrainian voice
+            ...(resolvedVoiceId ? { voice_id: resolvedVoiceId } : {}),
           },
         }],
         dimension: {
