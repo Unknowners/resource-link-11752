@@ -322,25 +322,11 @@ export default function VideoOnboarding() {
                     className="flex-1"
                     onClick={async () => {
                       try {
-                        const { data: { user } } = await supabase.auth.getUser();
-                        if (!user) return;
-                        
-                        const { error } = await supabase
-                          .from('onboarding_videos')
-                          .delete()
-                          .eq('user_id', user.id);
-                        
-                        if (error) {
-                          toast.error("Помилка при видаленні відео");
-                          console.error("Delete error:", error);
-                          return;
-                        }
-                        
-                        toast.success("Відео видалено. Починаємо нову генерацію...");
                         setVideoUrl(null);
                         setCurrentVideoId(null);
-                        setVideoGenerating(false);
-                        await checkExistingVideo();
+                        setVideoGenerating(true);
+                        toast.message("Починаємо нову генерацію відео...");
+                        await startVideoGeneration();
                       } catch (err) {
                         console.error("Regenerate error:", err);
                         toast.error("Помилка перегенерації");
