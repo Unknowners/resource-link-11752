@@ -1206,10 +1206,15 @@ export type Database = {
       }
       team_ideas: {
         Row: {
+          archived: boolean | null
+          comments: Json | null
           content: string
           created_at: string
           id: string
+          karma: number | null
           organization_id: string
+          project_id: string | null
+          scheduled_reminder_date: string | null
           status: string
           suggestion: string | null
           title: string
@@ -1217,10 +1222,15 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          archived?: boolean | null
+          comments?: Json | null
           content: string
           created_at?: string
           id?: string
+          karma?: number | null
           organization_id: string
+          project_id?: string | null
+          scheduled_reminder_date?: string | null
           status?: string
           suggestion?: string | null
           title: string
@@ -1228,10 +1238,15 @@ export type Database = {
           user_id: string
         }
         Update: {
+          archived?: boolean | null
+          comments?: Json | null
           content?: string
           created_at?: string
           id?: string
+          karma?: number | null
           organization_id?: string
+          project_id?: string | null
+          scheduled_reminder_date?: string | null
           status?: string
           suggestion?: string | null
           title?: string
@@ -1244,6 +1259,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_ideas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

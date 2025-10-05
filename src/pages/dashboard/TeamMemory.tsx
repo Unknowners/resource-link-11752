@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Lightbulb, Plus, Clock, AlertCircle, CheckCircle2, Trash2, Loader2 } from "lucide-react";
+import { Lightbulb, Plus, Clock, CheckCircle2, Trash2, Loader2, Star, MessageSquare, Archive, Sparkles, TrendingUp } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { uk } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Idea {
   id: string;
@@ -18,22 +20,78 @@ interface Idea {
   content: string;
   user_id: string;
   author: string;
-  status: "active" | "completed" | "outdated";
+  status: "active" | "completed" | "archived";
   createdAt: Date;
   suggestion?: string;
+  project_id?: string;
+  project_name?: string;
+  karma: number;
+  comments: Array<{
+    user_id: string;
+    user_name: string;
+    text: string;
+    created_at: string;
+  }>;
+  archived: boolean;
+  scheduled_reminder_date?: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
 }
 
 export default function TeamMemory() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newIdea, setNewIdea] = useState({ title: "", content: "" });
+  const [isSpinDialogOpen, setIsSpinDialogOpen] = useState(false);
+  const [isCommentDialogOpen, setIsCommentDialogOpen] = useState(false);
+  const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
+  const [newIdea, setNewIdea] = useState({ 
+    title: "", 
+    content: "", 
+    project_id: "",
+    scheduled_reminder_date: ""
+  });
+  const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
+  const [spinning, setSpinning] = useState(false);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [filterProject, setFilterProject] = useState<string>("all");
   const { toast } = useToast();
 
   useEffect(() => {
     loadIdeas();
+    loadProjects();
   }, []);
+
+  const loadProjects = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: member } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!member) return;
+
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name')
+        .eq('organization_id', member.organization_id)
+        .eq('status', 'active')
+        .order('name');
+
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (error) {
+      console.error('Error loading projects:', error);
+    }
+  };
 
   const loadIdeas = async () => {
     try {
@@ -41,7 +99,6 @@ export default function TeamMemory() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get user's organization
       const { data: member } = await supabase
         .from('organization_members')
         .select('organization_id')
@@ -51,7 +108,6 @@ export default function TeamMemory() {
       if (!member) return;
       setOrganizationId(member.organization_id);
 
-      // Get all ideas for the organization
       const { data: ideasData, error } = await supabase
         .from('team_ideas')
         .select(`
@@ -59,6 +115,10 @@ export default function TeamMemory() {
           profiles!team_ideas_user_id_fkey (
             first_name,
             last_name
+          ),
+          projects:project_id (
+            id,
+            name
           )
         `)
         .eq('organization_id', member.organization_id)
@@ -77,6 +137,12 @@ export default function TeamMemory() {
         status: idea.status,
         createdAt: new Date(idea.created_at),
         suggestion: idea.suggestion,
+        project_id: idea.project_id,
+        project_name: idea.projects?.name,
+        karma: idea.karma || 0,
+        comments: idea.comments || [],
+        archived: idea.archived || false,
+        scheduled_reminder_date: idea.scheduled_reminder_date
       }));
 
       setIdeas(formattedIdeas);
@@ -93,7 +159,15 @@ export default function TeamMemory() {
   };
 
   const handleAddIdea = async () => {
-    if (!newIdea.title.trim() || !newIdea.content.trim()) return;
+    if (!newIdea.title.trim() || !newIdea.content.trim()) {
+      toast({
+        title: "Помилка",
+        description: "Заповніть всі поля",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!organizationId) return;
 
     try {
@@ -108,16 +182,21 @@ export default function TeamMemory() {
           title: newIdea.title,
           content: newIdea.content,
           status: 'active',
+          project_id: newIdea.project_id || null,
+          scheduled_reminder_date: newIdea.scheduled_reminder_date || null,
+          karma: 0,
+          comments: [],
+          archived: false
         });
 
       if (error) throw error;
 
       toast({
-        title: "Успішно",
-        description: "Ідею додано",
+        title: "Успіх",
+        description: "Ідею додано успішно"
       });
 
-      setNewIdea({ title: "", content: "" });
+      setNewIdea({ title: "", content: "", project_id: "", scheduled_reminder_date: "" });
       setIsDialogOpen(false);
       loadIdeas();
     } catch (error) {
@@ -125,7 +204,7 @@ export default function TeamMemory() {
       toast({
         title: "Помилка",
         description: "Не вдалося додати ідею",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
@@ -155,36 +234,168 @@ export default function TeamMemory() {
     }
   };
 
-  const handleUpdateStatus = async (id: string, status: "active" | "completed" | "outdated") => {
+  const handleArchive = async (id: string) => {
     try {
       const { error } = await supabase
         .from('team_ideas')
-        .update({ status })
+        .update({ archived: true, status: 'archived' })
         .eq('id', id);
 
       if (error) throw error;
 
       toast({
-        title: "Успішно",
-        description: "Статус оновлено",
+        title: "Успіх",
+        description: "Ідею архівовано"
       });
 
       loadIdeas();
+      setIsSpinDialogOpen(false);
     } catch (error) {
-      console.error('Error updating status:', error);
+      console.error('Error archiving idea:', error);
       toast({
         title: "Помилка",
-        description: "Не вдалося оновити статус",
-        variant: "destructive",
+        description: "Не вдалося архівувати ідею",
+        variant: "destructive"
       });
     }
   };
 
+  const handleLike = async (id: string, currentKarma: number) => {
+    try {
+      const { error } = await supabase
+        .from('team_ideas')
+        .update({ karma: currentKarma + 1 })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "👍",
+        description: "+1 карма!"
+      });
+
+      loadIdeas();
+    } catch (error) {
+      console.error('Error liking idea:', error);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!selectedIdea || !newComment.trim()) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', user.id)
+        .single();
+
+      const comment = {
+        user_id: user.id,
+        user_name: profile ? `${profile.first_name} ${profile.last_name}` : 'Користувач',
+        text: newComment,
+        created_at: new Date().toISOString()
+      };
+
+      const updatedComments = [...(selectedIdea.comments || []), comment];
+
+      const { error } = await supabase
+        .from('team_ideas')
+        .update({ 
+          comments: updatedComments,
+          karma: selectedIdea.karma + 1 
+        })
+        .eq('id', selectedIdea.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Успіх",
+        description: "Коментар додано"
+      });
+
+      setNewComment("");
+      setIsCommentDialogOpen(false);
+      loadIdeas();
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast({
+        title: "Помилка",
+        description: "Не вдалося додати коментар",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSpin = async () => {
+    setSpinning(true);
+    
+    let filteredIdeas = ideas.filter(idea => !idea.archived && idea.status === 'active');
+    
+    if (filterProject !== "all") {
+      filteredIdeas = filteredIdeas.filter(idea => idea.project_id === filterProject);
+    }
+
+    if (filteredIdeas.length === 0) {
+      toast({
+        title: "Упс!",
+        description: "Немає активних ідей для обертання барабану",
+        variant: "destructive"
+      });
+      setSpinning(false);
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    const randomIdea = filteredIdeas[Math.floor(Math.random() * filteredIdeas.length)];
+    setSelectedIdea(randomIdea);
+    setSpinning(false);
+    setIsSpinDialogOpen(true);
+  };
+
+  const handlePostpone = async (id: string, days: number) => {
+    try {
+      const newDate = new Date();
+      newDate.setDate(newDate.getDate() + days);
+
+      const { error } = await supabase
+        .from('team_ideas')
+        .update({ scheduled_reminder_date: newDate.toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Успіх",
+        description: `Нагадування відкладено на ${days} днів`
+      });
+
+      setIsSpinDialogOpen(false);
+      loadIdeas();
+    } catch (error) {
+      console.error('Error postponing idea:', error);
+      toast({
+        title: "Помилка",
+        description: "Не вдалося відкласти ідею",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDevelop = (idea: Idea) => {
+    setSelectedIdea(idea);
+    setIsCommentDialogOpen(true);
+  };
+
   const getStatusBadge = (status: Idea["status"]) => {
     const config = {
-      active: { label: "Активна", variant: "default" as const, icon: AlertCircle },
+      active: { label: "Активна", variant: "default" as const, icon: Clock },
       completed: { label: "Завершено", variant: "outline" as const, icon: CheckCircle2 },
-      outdated: { label: "Застаріла", variant: "secondary" as const, icon: Clock },
+      archived: { label: "Архів", variant: "secondary" as const, icon: Archive },
     };
     const { label, variant, icon: Icon } = config[status];
     return (
@@ -195,160 +406,293 @@ export default function TeamMemory() {
     );
   };
 
+  const activeIdeas = ideas.filter(idea => !idea.archived);
+  const topIdea = [...activeIdeas].sort((a, b) => b.karma - a.karma)[0];
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header with Spin Button */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl mb-2">Team Memory</h1>
+          <h1 className="font-display text-2xl sm:text-3xl mb-2">🎰 Барабан Ідей</h1>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Командний інбокс ідей та нотаток
+            Командний інбокс ідей та креативний спін
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Додати ідею
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Нова ідея</DialogTitle>
-              <DialogDescription>
-                Додайте нову ідею або нотатку для команди
-              </DialogDescription>
-            </DialogHeader>
+        <div className="flex gap-2">
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Додати ідею
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh]">
+              <DialogHeader>
+                <DialogTitle>Нова ідея</DialogTitle>
+                <DialogDescription>
+                  Додайте нову ідею або нотатку для команди
+                </DialogDescription>
+              </DialogHeader>
+              <ScrollArea className="max-h-[60vh]">
+                <div className="space-y-4 pr-4">
+                  <div>
+                    <Label htmlFor="title">Назва</Label>
+                    <Input
+                      id="title"
+                      value={newIdea.title}
+                      onChange={(e) => setNewIdea({ ...newIdea, title: e.target.value })}
+                      placeholder="Коротка назва ідеї"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="content">Опис</Label>
+                    <Textarea
+                      id="content"
+                      value={newIdea.content}
+                      onChange={(e) => setNewIdea({ ...newIdea, content: e.target.value })}
+                      placeholder="Детальний опис ідеї або нотатки..."
+                      rows={4}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="project">Проєкт (опціонально)</Label>
+                    <Select value={newIdea.project_id} onValueChange={(value) => setNewIdea({ ...newIdea, project_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Виберіть проєкт" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Без проєкту</SelectItem>
+                        {projects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="reminder">Нагадування (опціонально)</Label>
+                    <Input
+                      id="reminder"
+                      type="date"
+                      value={newIdea.scheduled_reminder_date}
+                      onChange={(e) => setNewIdea({ ...newIdea, scheduled_reminder_date: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </ScrollArea>
+              <Button onClick={handleAddIdea} className="w-full mt-4">
+                Зберегти
+              </Button>
+            </DialogContent>
+          </Dialog>
+
+          <Button variant="secondary" onClick={handleSpin} disabled={spinning || activeIdeas.length === 0}>
+            {spinning ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Крутимо...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Крутнути барабан
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* Filter */}
+      <div className="flex items-center gap-4">
+        <Label>Фільтр по проєкту:</Label>
+        <Select value={filterProject} onValueChange={setFilterProject}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Всі проєкти</SelectItem>
+            {projects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                {project.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Spin Dialog */}
+      <Dialog open={isSpinDialogOpen} onOpenChange={setIsSpinDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Барабан обрав ідею!
+            </DialogTitle>
+          </DialogHeader>
+          {selectedIdea && (
             <div className="space-y-4">
               <div>
-                <Label htmlFor="title">Назва</Label>
-                <Input
-                  id="title"
-                  value={newIdea.title}
-                  onChange={(e) => setNewIdea({ ...newIdea, title: e.target.value })}
-                  placeholder="Коротка назва ідеї"
-                />
+                <h3 className="font-semibold text-lg">{selectedIdea.title}</h3>
+                {selectedIdea.project_name && (
+                  <Badge variant="outline" className="mt-2">
+                    {selectedIdea.project_name}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-muted-foreground">{selectedIdea.content}</p>
+              <div className="flex items-center gap-2">
+                <Star className="h-4 w-4 text-yellow-500" />
+                <span className="text-sm">Карма: {selectedIdea.karma}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Створено {formatDistanceToNow(selectedIdea.createdAt, { addSuffix: true, locale: uk })}
+              </p>
+
+              <div className="flex flex-col gap-2">
+                <Button onClick={() => handleDevelop(selectedIdea)} className="w-full">
+                  ✅ Розвинути ідею
+                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={() => handlePostpone(selectedIdea.id, 7)}>
+                    🕒 Відкласти на 7 днів
+                  </Button>
+                  <Button variant="outline" onClick={() => handlePostpone(selectedIdea.id, 30)}>
+                    🕒 Відкласти на 30 днів
+                  </Button>
+                </div>
+                <Button variant="destructive" onClick={() => handleArchive(selectedIdea.id)} className="w-full">
+                  🗑️ Архівувати
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Comment Dialog */}
+      <Dialog open={isCommentDialogOpen} onOpenChange={setIsCommentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Розвинути ідею</DialogTitle>
+          </DialogHeader>
+          {selectedIdea && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold">{selectedIdea.title}</h3>
+                <p className="text-sm text-muted-foreground mt-2">{selectedIdea.content}</p>
               </div>
               <div>
-                <Label htmlFor="content">Опис</Label>
+                <Label htmlFor="comment">Ваш коментар</Label>
                 <Textarea
-                  id="content"
-                  value={newIdea.content}
-                  onChange={(e) => setNewIdea({ ...newIdea, content: e.target.value })}
-                  placeholder="Детальний опис ідеї або нотатки..."
+                  id="comment"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Додайте свої думки щодо цієї ідеї..."
                   rows={4}
                 />
               </div>
-              <Button onClick={handleAddIdea} className="w-full">
-                Зберегти
+              <Button onClick={handleAddComment} className="w-full">
+                Додати коментар
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Top Idea Card */}
+      {topIdea && (
+        <Card className="border-2 border-primary bg-gradient-to-r from-primary/5 to-primary/10">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              💡 Ідея тижня
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <h3 className="font-semibold">{topIdea.title}</h3>
+            <p className="text-sm text-muted-foreground">{topIdea.content}</p>
+            <div className="flex items-center gap-4">
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <Star className="h-3 w-3 text-yellow-500" />
+                {topIdea.karma} карма
+              </Badge>
+              <Badge variant="outline">{topIdea.author}</Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Ideas Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : ideas.length === 0 ? (
+      ) : activeIdeas.length === 0 ? (
         <Card className="p-12 text-center">
           <Lightbulb className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
           <p className="text-muted-foreground">Поки що немає ідей. Додайте першу!</p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {ideas.map((idea) => (
-          <Card
-            key={idea.id}
-            className={`border-2 hover:shadow-lg transition-shadow ${
-              idea.suggestion ? "border-primary" : ""
-            }`}
-          >
-            <CardHeader>
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <CardTitle className="text-base">{idea.title}</CardTitle>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6"
-                  onClick={() => handleDeleteIdea(idea.id)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {getStatusBadge(idea.status)}
-                <Badge variant="outline" className="text-xs">
-                  {idea.author}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground line-clamp-3">
-                {idea.content}
-              </p>
-
-              {idea.suggestion && (
-                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                  <div className="flex items-start gap-2">
-                    <Lightbulb className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-primary font-medium">
-                      {idea.suggestion}
-                    </p>
-                  </div>
+          {activeIdeas.map((idea) => (
+            <Card key={idea.id} className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <CardTitle className="text-base">{idea.title}</CardTitle>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6"
+                    onClick={() => handleDeleteIdea(idea.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
-              )}
+                <div className="flex flex-wrap gap-2">
+                  {getStatusBadge(idea.status)}
+                  <Badge variant="outline" className="text-xs">
+                    {idea.author}
+                  </Badge>
+                  {idea.project_name && (
+                    <Badge variant="secondary" className="text-xs">
+                      {idea.project_name}
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground line-clamp-3">
+                  {idea.content}
+                </p>
 
-              <p className="text-xs text-muted-foreground">
-                {formatDistanceToNow(idea.createdAt, { addSuffix: true, locale: uk })}
-              </p>
-
-              <div className="flex gap-2">
-                {idea.status === "active" && (
-                  <>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => handleUpdateStatus(idea.id, "completed")}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => handleLike(idea.id, idea.karma)}
+                      className="flex items-center gap-1 text-sm hover:text-primary transition-colors"
                     >
-                      Завершити
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => handleUpdateStatus(idea.id, "outdated")}
+                      <Star className="h-4 w-4 text-yellow-500" />
+                      {idea.karma}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setSelectedIdea(idea);
+                        setIsCommentDialogOpen(true);
+                      }}
+                      className="flex items-center gap-1 text-sm hover:text-primary transition-colors"
                     >
-                      Архівувати
-                    </Button>
-                  </>
-                )}
-                {idea.status === "completed" && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={() => handleUpdateStatus(idea.id, "active")}
-                  >
-                    Відновити
-                  </Button>
-                )}
-                {idea.status === "outdated" && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={() => handleUpdateStatus(idea.id, "active")}
-                  >
-                    Відновити
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                      <MessageSquare className="h-4 w-4" />
+                      {idea.comments.length}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(idea.createdAt, { addSuffix: true, locale: uk })}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
@@ -361,7 +705,7 @@ export default function TeamMemory() {
         <CardContent>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold">{ideas.filter(i => i.status === "active").length}</div>
+              <div className="text-2xl font-bold">{activeIdeas.length}</div>
               <div className="text-xs text-muted-foreground">Активних</div>
             </div>
             <div>
@@ -369,8 +713,8 @@ export default function TeamMemory() {
               <div className="text-xs text-muted-foreground">Завершених</div>
             </div>
             <div>
-              <div className="text-2xl font-bold">{ideas.length}</div>
-              <div className="text-xs text-muted-foreground">Всього ідей</div>
+              <div className="text-2xl font-bold">{ideas.reduce((sum, i) => sum + i.karma, 0)}</div>
+              <div className="text-xs text-muted-foreground">Загальна карма</div>
             </div>
           </div>
         </CardContent>
