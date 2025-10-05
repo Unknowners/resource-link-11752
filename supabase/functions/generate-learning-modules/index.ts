@@ -135,13 +135,13 @@ serve(async (req) => {
     const userPrompt = `Створи персоналізовані навчальні модулі для цього користувача.
 Кожен модуль має містити структурований контент (текст, відео, квізи, практичні завдання).
 
-КРИТИЧНО: Використовуй ТІЛЬКИ реальні та робочі посилання:
-- Для YouTube: перевір, що відео існує
-- Для документації: використовуй відомі сайти (developer.mozilla.org, docs.microsoft.com, github.com)
-- НЕ вигадуй внутрішні посилання організації
-- Якщо не впевнений у посиланні - краще не додавай його
-
-Використовуй матеріали організації де це можливо.
+КРИТИЧНО ВАЖЛИВІ ПРАВИЛА ДЛЯ ПОСИЛАНЬ:
+1. ВСІ URL мають бути РЕАЛЬНИМИ та РОБОЧИМИ
+2. Для відео: ТІЛЬКИ існуючі YouTube відео (youtube.com/watch?v=...)
+3. Для документації: ТІЛЬКИ відомі сайти (developer.mozilla.org, docs.microsoft.com, github.com/docs)
+4. ЗАБОРОНЕНО генерувати внутрішні посилання (internal.*, intranet.*, *.organization.com)
+5. Якщо не знаєш реального посилання - НЕ додавай ресурс взагалі
+6. resources масив може бути ПОРОЖНІМ, якщо немає перевірених посилань
 
 ${preferences?.preferred_topics && Array.isArray(preferences.preferred_topics) && preferences.preferred_topics.length > 0 ? `Обов'язково включи ці теми: ${preferences.preferred_topics.join(', ')}` : ''}
 ${userPositions && userPositions.length > 0 ? `Врахуй специфіку посади: ${userPositions.map((p: any) => p.positions?.name).join(', ')}` : 'Створи універсальні модулі для розвитку soft skills'}
@@ -210,19 +210,35 @@ ${userPositions && userPositions.length > 0 ? `Врахуй специфіку �
     }
 
     // Save modules to database
-    const modulesToInsert = modulesData.map((module: any) => ({
-      organization_id: organizationId,
-      user_id: userId,
-      position_id: userPositions?.[0]?.position_id || null,
-      title: module.title,
-      description: module.description,
-      duration: module.duration,
-      category: module.category,
-      difficulty: module.difficulty,
-      content: module.content || [],
-      resources: module.resources || [],
-      completed: false,
-    }));
+    const modulesToInsert = modulesData.map((module: any) => {
+      // Фільтруємо ресурси - видаляємо вигадані внутрішні посилання
+      const validResources = (module.resources || []).filter((resource: any) => {
+        if (!resource.url) return false;
+        // Видаляємо вигадані внутрішні посилання
+        if (resource.url.includes('internal.') || 
+            resource.url.includes('intranet.') ||
+            resource.url.includes('organization.com')) {
+          console.log('Filtered out fake internal URL:', resource.url);
+          return false;
+        }
+        // Залишаємо тільки реальні домени
+        return resource.url.startsWith('http://') || resource.url.startsWith('https://');
+      });
+
+      return {
+        organization_id: organizationId,
+        user_id: userId,
+        position_id: userPositions?.[0]?.position_id || null,
+        title: module.title,
+        description: module.description,
+        duration: module.duration,
+        category: module.category,
+        difficulty: module.difficulty,
+        content: module.content || [],
+        resources: validResources,
+        completed: false,
+      };
+    });
 
     const { data: insertedModules, error: insertError } = await supabase
       .from('learning_modules')
