@@ -73,11 +73,17 @@ export default function VideoOnboarding() {
     setCurrentVideoId(null);
 
     try {
+      console.log('Calling generate-heygen-video with text:', scriptText);
       const { data, error } = await supabase.functions.invoke('generate-heygen-video', {
         body: { text: scriptText, language: 'uk' }
       });
 
-      if (error) throw error;
+      console.log('HeyGen generation response:', { data, error });
+
+      if (error) {
+        console.error('HeyGen error:', error);
+        throw error;
+      }
 
       const videoId =
         (data && (data as any).video_id) ??
