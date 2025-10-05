@@ -22,30 +22,50 @@ serve(async (req) => {
       throw new Error('HEYGEN_API_KEY is not configured');
     }
 
-    // Resolve a valid voice_id
+    // Resolve a valid voice_id (required by HeyGen)
     let resolvedVoiceId = voiceId as string | undefined;
     if (!resolvedVoiceId) {
-      try {
-        const voicesRes = await fetch('https://api.heygen.com/v2/voices', {
-          method: 'GET',
-          headers: {
-            'X-Api-Key': heygenApiKey,
-          },
-        });
-        if (voicesRes.ok) {
-          const voicesData = await voicesRes.json();
-          const voices = voicesData?.voices ?? [];
-          // Prefer requested language, otherwise try Ukrainian, then English, then first available
-          const langPref = (language || '').toLowerCase();
-          const pickByLang = (lang: string) => voices.find((v: any) => (v.language || '').toLowerCase().includes(lang));
-          resolvedVoiceId =
-            (langPref && pickByLang(langPref))?.voice_id ||
-            pickByLang('uk')?.voice_id ||
-            pickByLang('en')?.voice_id ||
-            voices[0]?.voice_id;
+      const endpoints = [
+        'https://api.heygen.com/v2/voices',
+        'https://api.heygen.com/v1/voices.list',
+      ];
+      let voices: any[] = [];
+      for (const url of endpoints) {
+        try {
+          const res = await fetch(url, {
+            method: 'GET',
+            headers: { 'X-Api-Key': heygenApiKey, 'Accept': 'application/json' },
+          });
+          if (!res.ok) {
+            const t = await res.text();
+            console.warn('Voices endpoint failed', url, res.status, t);
+            continue;
+          }
+          const json = await res.json();
+          const list = Array.isArray(json?.voices)
+            ? json.voices
+            : Array.isArray(json?.data?.voices)
+            ? json.data.voices
+            : [];
+          if (list.length) {
+            voices = list;
+            break;
+          }
+        } catch (e) {
+          console.warn('Error fetching voices from', url, e);
         }
-      } catch (e) {
-        console.warn('Failed to fetch HeyGen voices, will let API choose default if possible:', e);
+      }
+
+      const langPref = String(language || '').toLowerCase();
+      const pickByLang = (lang: string) => voices.find((v: any) => String(v.language || '').toLowerCase().includes(lang));
+      resolvedVoiceId =
+        (langPref && pickByLang(langPref))?.voice_id ||
+        pickByLang('uk')?.voice_id ||
+        pickByLang('en')?.voice_id ||
+        voices[0]?.voice_id;
+
+      if (!resolvedVoiceId) {
+        throw new Error('Could not resolve HeyGen voice_id. Please verify your HeyGen API key and account permissions.');
       }
     }
 
@@ -66,7 +86,7 @@ serve(async (req) => {
           voice: {
             type: 'text',
             input_text: text,
-            ...(resolvedVoiceId ? { voice_id: resolvedVoiceId } : {}),
+            voice_id: resolvedVoiceId,
           },
         }],
         dimension: {
