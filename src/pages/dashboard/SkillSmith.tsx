@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LearningCalendar } from "@/components/learning/LearningCalendar";
+import { CalendarView } from "@/components/learning/CalendarView";
 import { LearningPreferencesDialog } from "@/components/learning/LearningPreferencesDialog";
 import { BookOpen, Clock, CheckCircle2, PlayCircle, Calendar, Loader2, Sparkles, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -330,7 +330,7 @@ export default function SkillSmith() {
         </TabsContent>
 
         <TabsContent value="calendar" className="mt-6">
-          <LearningCalendar />
+          <CalendarView />
         </TabsContent>
       </Tabs>
     </div>
