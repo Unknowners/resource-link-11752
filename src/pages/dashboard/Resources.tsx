@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, FileText, Link as LinkIcon, Database, Cloud } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Resource {
   id: string;
@@ -50,6 +51,7 @@ const getIntegrationColor = (integration: string) => {
 };
 
 export default function Resources() {
+  const { toast } = useToast();
   const [resources, setResources] = useState<Resource[]>([]);
   const [materials, setMaterials] = useState<OnboardingMaterial[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,7 +179,15 @@ export default function Resources() {
         .from(material.bucket)
         .download(material.file_path);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Storage error:', error);
+        toast({
+          title: "Помилка завантаження",
+          description: "Файл не знайдено в сховищі. Зверніться до адміністратора для завантаження матеріалів.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
@@ -187,8 +197,18 @@ export default function Resources() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Успішно завантажено",
+        description: `Файл ${material.file_name} завантажено`,
+      });
     } catch (error) {
       console.error('Error downloading material:', error);
+      toast({
+        title: "Помилка",
+        description: "Не вдалося завантажити файл. Спробуйте пізніше.",
+        variant: "destructive",
+      });
     }
   };
 
