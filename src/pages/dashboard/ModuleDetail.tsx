@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ScheduleDialog } from "@/components/learning/ScheduleDialog";
 import { ArrowLeft, BookOpen, Clock, ExternalLink, FileText, CheckCircle2, Video, ClipboardList, Brain, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,6 +51,7 @@ export default function ModuleDetail() {
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
 
   useEffect(() => {
     loadModule();
@@ -200,10 +202,6 @@ export default function ModuleDetail() {
       console.error("Error marking module as completed:", error);
       toast.error("Помилка при оновленні статусу");
     }
-  };
-
-  const addToCalendar = () => {
-    toast.success("Функція календаря буде додана найближчим часом!");
   };
 
   const getSectionIcon = (type: string) => {
@@ -442,9 +440,9 @@ export default function ModuleDetail() {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 justify-end">
-            <Button onClick={addToCalendar} variant="outline" size="lg">
+            <Button onClick={() => setScheduleDialogOpen(true)} variant="outline" size="lg">
               <Calendar className="mr-2 h-5 w-5" />
-              Додати в календар
+              Запланувати в календарі
             </Button>
             {!module.completed ? (
               <Button 
@@ -464,6 +462,18 @@ export default function ModuleDetail() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Schedule Dialog */}
+      <ScheduleDialog
+        open={scheduleDialogOpen}
+        onOpenChange={setScheduleDialogOpen}
+        module={{
+          id: module.id,
+          title: module.title,
+          duration: module.duration
+        }}
+        onScheduled={() => toast.success("Навчання додано в календар")}
+      />
     </div>
   );
 }

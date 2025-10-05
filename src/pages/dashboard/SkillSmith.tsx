@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LearningCalendar } from "@/components/learning/LearningCalendar";
 import { BookOpen, Clock, CheckCircle2, PlayCircle, Calendar, Loader2, Sparkles, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -183,126 +185,139 @@ export default function SkillSmith() {
         </Button>
       </div>
 
-      {modules.length > 0 && (
-        <Card className="border-2">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Ваш прогрес</span>
-              <Badge variant="outline">{completedCount} / {modules.length}</Badge>
-            </CardTitle>
-            <CardDescription>Завершено модулів навчання</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Progress value={progressPercent} className="h-3" />
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>{Math.round(progressPercent)}% завершено</span>
-              <span>{modules.reduce((acc, m) => acc + m.duration, 0)} хв загальний час</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Tabs defaultValue="modules" className="w-full">
+        <TabsList>
+          <TabsTrigger value="modules">Модулі навчання</TabsTrigger>
+          <TabsTrigger value="calendar">Календар</TabsTrigger>
+        </TabsList>
 
-      {/* Modules List */}
-      {modules.length === 0 ? (
-        <Card className="border-2 border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Sparkles className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Немає навчальних модулів</h3>
-            <p className="text-muted-foreground text-center mb-4">
-              Натисніть кнопку "Згенерувати модулі", щоб AI створив персоналізовані<br />
-              навчальні матеріали на основі вашої посади та доступних ресурсів
-            </p>
-            <Button onClick={generateModules} disabled={isGenerating}>
-              <Sparkles className="h-4 w-4 mr-2" />
-              Згенерувати модулі
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {modules.map((module) => (
-            <Card
-              key={module.id}
-              className={`border-2 hover:shadow-lg transition-shadow ${
-                module.completed ? "bg-secondary/30" : ""
-              }`}
-            >
+        <TabsContent value="modules" className="space-y-6 mt-6">
+          {modules.length > 0 && (
+            <Card className="border-2">
               <CardHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <CardTitle className="text-base mb-1">{module.title}</CardTitle>
-                    {module.description && (
-                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                        {module.description}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {module.category}
-                      </Badge>
-                      {module.difficulty && (
-                        <Badge variant="secondary" className="text-xs">
-                          {module.difficulty}
-                        </Badge>
-                      )}
-                      <Badge variant="outline" className="text-xs">
-                        <Clock className="h-3 w-3 mr-1" />
-                        {module.duration} хв
-                      </Badge>
-                    </div>
-                  </div>
-                  {module.completed ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
-                  ) : (
-                    <PlayCircle className="h-5 w-5 text-primary flex-shrink-0" />
-                  )}
-                </div>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Ваш прогрес</span>
+                  <Badge variant="outline">{completedCount} / {modules.length}</Badge>
+                </CardTitle>
+                <CardDescription>Завершено модулів навчання</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Button
-                    onClick={() => navigate(`/app/skillsmith/${module.id}`)}
-                    className="w-full"
-                  >
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    Переглянути матеріали
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                  {!module.completed && (
-                    <Button
-                      onClick={() => markAsCompleted(module.id)}
-                      className="w-full"
-                      variant="outline"
-                    >
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Завершити
-                    </Button>
-                  )}
+              <CardContent className="space-y-4">
+                <Progress value={progressPercent} className="h-3" />
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>{Math.round(progressPercent)}% завершено</span>
+                  <span>{modules.reduce((acc, m) => acc + m.duration, 0)} хв загальний час</span>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          )}
 
-      {/* AI Info */}
-      {modules.length > 0 && (
-        <Card className="border-2 bg-gradient-to-br from-primary/5 to-accent/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5" />
-              Персоналізоване навчання на основі AI
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Ці модулі були згенеровані спеціально для вас на основі вашої посади, 
-              доступних матеріалів організації та актуальних ресурсів з інтернету. 
-              Ви можете згенерувати нові модулі в будь-який час.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+          {/* Modules List */}
+          {modules.length === 0 ? (
+            <Card className="border-2 border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Sparkles className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Немає навчальних модулів</h3>
+                <p className="text-muted-foreground text-center mb-4">
+                  Натисніть кнопку "Згенерувати модулі", щоб AI створив персоналізовані<br />
+                  навчальні матеріали на основі вашої посади та доступних ресурсів
+                </p>
+                <Button onClick={generateModules} disabled={isGenerating}>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Згенерувати модулі
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {modules.map((module) => (
+                <Card
+                  key={module.id}
+                  className={`border-2 hover:shadow-lg transition-shadow ${
+                    module.completed ? "bg-secondary/30" : ""
+                  }`}
+                >
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <CardTitle className="text-base mb-1">{module.title}</CardTitle>
+                        {module.description && (
+                          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                            {module.description}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {module.category}
+                          </Badge>
+                          {module.difficulty && (
+                            <Badge variant="secondary" className="text-xs">
+                              {module.difficulty}
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-xs">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {module.duration} хв
+                          </Badge>
+                        </div>
+                      </div>
+                      {module.completed ? (
+                        <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      ) : (
+                        <PlayCircle className="h-5 w-5 text-primary flex-shrink-0" />
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <Button
+                        onClick={() => navigate(`/app/skillsmith/${module.id}`)}
+                        className="w-full"
+                      >
+                        <BookOpen className="mr-2 h-4 w-4" />
+                        Переглянути матеріали
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                      {!module.completed && (
+                        <Button
+                          onClick={() => markAsCompleted(module.id)}
+                          className="w-full"
+                          variant="outline"
+                        >
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Завершити
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* AI Info */}
+          {modules.length > 0 && (
+            <Card className="border-2 bg-gradient-to-br from-primary/5 to-accent/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  Персоналізоване навчання на основі AI
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Ці модулі були згенеровані спеціально для вас на основі вашої посади, 
+                  доступних матеріалів організації та актуальних ресурсів з інтернету. 
+                  Ви можете згенерувати нові модулі в будь-який час.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="calendar" className="mt-6">
+          <LearningCalendar />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

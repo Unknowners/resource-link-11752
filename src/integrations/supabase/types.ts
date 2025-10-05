@@ -477,6 +477,69 @@ export type Database = {
           },
         ]
       }
+      learning_schedule: {
+        Row: {
+          created_at: string
+          duration: number
+          id: string
+          module_id: string
+          notes: string | null
+          organization_id: string
+          reminder_enabled: boolean | null
+          reminder_sent: boolean | null
+          scheduled_date: string
+          scheduled_time: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration: number
+          id?: string
+          module_id: string
+          notes?: string | null
+          organization_id: string
+          reminder_enabled?: boolean | null
+          reminder_sent?: boolean | null
+          scheduled_date: string
+          scheduled_time?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration?: number
+          id?: string
+          module_id?: string
+          notes?: string | null
+          organization_id?: string
+          reminder_enabled?: boolean | null
+          reminder_sent?: boolean | null
+          scheduled_date?: string
+          scheduled_time?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_schedule_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "learning_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_schedule_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_materials: {
         Row: {
           bucket: string
