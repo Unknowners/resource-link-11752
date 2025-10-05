@@ -430,8 +430,8 @@ export default function KnowledgeBase() {
       <ResizableHandle withHandle />
 
       <ResizablePanel defaultSize={80}>
-        <div className="h-full flex flex-col">
-          <ScrollArea className="flex-1 p-4 sm:p-6" ref={scrollAreaRef}>
+        <div className="h-full flex flex-col overflow-hidden">
+          <ScrollArea className="flex-1 h-0 p-4 sm:p-6" ref={scrollAreaRef}>
           {loadingHistory ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
