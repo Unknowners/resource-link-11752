@@ -331,7 +331,7 @@ export default function KnowledgeBase() {
   };
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-4rem)]">
+    <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-4rem)] min-h-0">
       <ResizablePanel 
         defaultSize={20} 
         minSize={sidebarCollapsed ? 0 : 15} 
@@ -340,8 +340,8 @@ export default function KnowledgeBase() {
         onCollapse={() => setSidebarCollapsed(true)}
         onExpand={() => setSidebarCollapsed(false)}
       >
-        <div className="h-full bg-gradient-to-b from-card to-card/50 border-r flex flex-col">
-          <div className="p-4 space-y-4">
+        <div className="h-full min-h-0 bg-gradient-to-b from-card to-card/50 border-r flex flex-col">
+          <div className="p-4 space-y-4 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
@@ -376,7 +376,7 @@ export default function KnowledgeBase() {
 
           <Separator className="opacity-50" />
 
-          <ScrollArea className="flex-1 px-3 py-2">
+          <ScrollArea className="flex-1 min-h-0 px-3 py-2">
             <div className="space-y-1">
               {conversations.map((conv) => (
                 <div
@@ -416,8 +416,8 @@ export default function KnowledgeBase() {
       <ResizableHandle withHandle />
 
       <ResizablePanel defaultSize={80}>
-        <div className="h-full flex flex-col overflow-hidden">
-          <ScrollArea className="flex-1 h-0 p-4 sm:p-6" ref={scrollAreaRef}>
+        <div className="h-full min-h-0 flex flex-col overflow-hidden">
+          <ScrollArea className="flex-1 h-0 min-h-0 p-4 sm:p-6" ref={scrollAreaRef}>
           {loadingHistory ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
