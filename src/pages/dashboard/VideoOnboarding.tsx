@@ -22,7 +22,7 @@ export default function VideoOnboarding() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Check if video already exists
+      // Check if video already exists (any status)
       const { data: existingVideo } = await supabase
         .from('onboarding_videos')
         .select('*')
@@ -31,20 +31,37 @@ export default function VideoOnboarding() {
         .limit(1)
         .maybeSingle();
 
-      if (existingVideo?.status === 'completed' && existingVideo?.video_url) {
+      console.log('Existing video check:', existingVideo);
+
+      if (!existingVideo) {
+        // No video at all - start generation
+        console.log('No video found, starting generation');
+        await startVideoGeneration();
+        return;
+      }
+
+      if (existingVideo.status === 'completed' && existingVideo.video_url) {
         // Video is ready - display it
+        console.log('Video ready, displaying:', existingVideo.video_url);
         setVideoUrl(existingVideo.video_url);
         setVideoGenerating(false);
         setLoading(false);
-      } else if (existingVideo?.status === 'processing' && existingVideo?.provider_video_id) {
+      } else if (existingVideo.status === 'processing' && existingVideo.provider_video_id) {
         // Video is being generated - continue polling
+        console.log('Video processing, continuing polling:', existingVideo.provider_video_id);
         setVideoGenerating(true);
         setCurrentVideoId(existingVideo.provider_video_id);
         setLoading(false);
         checkVideoStatus(existingVideo.provider_video_id);
+      } else if (existingVideo.status === 'failed' || existingVideo.error) {
+        // Failed video - allow retry
+        console.log('Video failed, showing error');
+        toast.error(`Попередня генерація не вдалася: ${existingVideo.error || 'Невідома помилка'}`);
+        setLoading(false);
       } else {
-        // No video or failed - start generation
-        await startVideoGeneration();
+        // Unknown state - wait for user action
+        console.log('Unknown video state:', existingVideo.status);
+        setLoading(false);
       }
     } catch (error) {
       console.error('Error checking video:', error);
@@ -101,13 +118,29 @@ export default function VideoOnboarding() {
   };
 
   const generateVideo = async (text: string, organizationId: string) => {
-    setVideoGenerating(true);
-    setVideoUrl(null);
-    setCurrentVideoId(null);
-
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Check if there's already a video in progress
+      const { data: existingVideo } = await supabase
+        .from('onboarding_videos')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'processing')
+        .maybeSingle();
+
+      if (existingVideo) {
+        console.log('Video already in progress, continuing polling');
+        setVideoGenerating(true);
+        setCurrentVideoId(existingVideo.provider_video_id);
+        checkVideoStatus(existingVideo.provider_video_id);
+        return;
+      }
+
+      setVideoGenerating(true);
+      setVideoUrl(null);
+      setCurrentVideoId(null);
 
       console.log('Calling generate-heygen-video with text:', text);
       const { data, error } = await supabase.functions.invoke('generate-heygen-video', {
