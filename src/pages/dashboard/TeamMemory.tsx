@@ -458,12 +458,6 @@ export default function TeamMemory() {
                 </DialogDescription>
               </DialogHeader>
 
-              {/* Envelope Animation */}
-              <EnvelopeAnimation 
-                isOpen={isDialogOpen} 
-                isSubmitting={isSubmitting}
-              />
-
               {/* Storage Animation on Success */}
               <AnimatePresence>
                 {showSuccess && (
@@ -471,11 +465,23 @@ export default function TeamMemory() {
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
+                    className="py-4"
                   >
                     <IdeaStorageAnimation showSuccess={showSuccess} />
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {!showSuccess && (
+                <>
+                  {/* Envelope Animation */}
+                  <div className="py-2">
+                    <EnvelopeAnimation 
+                      isOpen={isDialogOpen} 
+                      isSubmitting={isSubmitting}
+                    />
+                  </div>
+
 
               <ScrollArea className="max-h-[60vh]">
                 <motion.div 
@@ -543,6 +549,8 @@ export default function TeamMemory() {
                   "Зберегти"
                 )}
               </Button>
+              </>
+            )}
             </DialogContent>
           </Dialog>
 
