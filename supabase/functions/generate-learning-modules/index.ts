@@ -30,57 +30,107 @@ serve(async (req) => {
     console.log('User positions:', userPositions?.length || 0);
 
     // Get organization materials
-    const { data: materials } = await supabase
+    const { data: orgMaterials } = await supabase
       .from('onboarding_materials')
       .select('title, description, file_name')
       .eq('organization_id', organizationId);
 
-    console.log('Organization materials:', materials?.length || 0);
+    console.log('Organization materials:', orgMaterials?.length || 0);
 
-    // Build context for AI
-    const positionsContext = userPositions?.map((up: any) => {
-      const position = Array.isArray(up.positions) ? up.positions[0] : up.positions;
-      return `Посада: ${position?.name || 'Не вказано'}\nОпис: ${position?.description || 'Не вказано'}`;
-    }).join('\n\n') || 'Посада не вказана';
+    const systemPrompt = `Ти - AI асистент, який створює персоналізовані навчальні модулі для співробітників.
 
-    const materialsContext = materials?.map(m =>
-      `- ${m.title}: ${m.description || m.file_name}`
-    ).join('\n') || 'Немає доступних матеріалів';
+ВАЖЛИВО: Твоя відповідь має бути валідним JSON об'єктом з полем "modules" що містить масив модулів.
 
-    const systemPrompt = `Ти - експерт з корпоративного навчання. Створи персоналізовані навчальні модулі для співробітника на основі:
+Кожен модуль повинен містити:
+- title: назва модуля (максимум 100 символів)
+- description: опис модуля (максимум 300 символів)
+- duration: тривалість у хвилинах (НЕ більше 30 хвилин!)
+- category: категорія (наприклад: "Технології", "Процеси", "Інструменти", "Soft skills")
+- difficulty: рівень складності ("beginner", "intermediate", "advanced")
+- content: структурований контент модуля з різними типами матеріалів
+- resources: масив ресурсів з полями name, url, type
 
-ПОСАДИ КОРИСТУВАЧА:
-${positionsContext}
+ФОРМАТ content повинен містити масив секцій, кожна секція - це об'єкт:
+{
+  "type": "text" | "video" | "quiz" | "practice" | "checklist",
+  "title": "Назва секції",
+  "content": "Вміст (для text - текст, для video - опис і посилання, для quiz - питання, для practice - завдання)",
+  "duration": число хвилин на цю секцію,
+  "url": "посилання на відео (для type: video)",
+  "items": [] // для quiz (питання з варіантами відповідей), checklist (список пунктів), practice (кроки виконання)
+}
 
-ДОСТУПНІ МАТЕРІАЛИ ОРГАНІЗАЦІЇ:
-${materialsContext}
-
-ІНСТРУКЦІЇ:
-1. Створи 4-6 релевантних навчальних модулів
-2. Враховуй посаду користувача та наявні матеріали
-3. Додай модулі з зовнішніх джерел (інтернет ресурси) які будуть корисні
-4. Кожен модуль має містити: title, description, category, duration (хвилини), difficulty (beginner/intermediate/advanced)
-5. Додай resources з посиланнями на матеріали (як внутрішні так і зовнішні)
-
-Відповідай ТІЛЬКИ валідним JSON масивом об'єктів без додаткового тексту.`;
-
-    const userPrompt = `Згенеруй навчальні модулі для цього користувача. Формат відповіді:
+Приклад структури content:
 [
   {
-    "title": "Назва модуля",
-    "description": "Детальний опис що вивчить користувач",
-    "category": "Категорія (наприклад: Інструменти, Розробка, Процеси, Безпека)",
-    "duration": 30,
-    "difficulty": "beginner",
-    "resources": [
-      {"name": "Назва ресурсу", "url": "https://...", "type": "internal/external"}
+    "type": "text",
+    "title": "Вступ",
+    "content": "Короткий огляд того, що ви вивчите...",
+    "duration": 5
+  },
+  {
+    "type": "video",
+    "title": "Демонстрація інструменту",
+    "content": "Відео демонстрація використання Git",
+    "url": "https://www.youtube.com/watch?v=HVsySz-h9r4",
+    "duration": 10
+  },
+  {
+    "type": "quiz",
+    "title": "Перевірка знань",
+    "duration": 5,
+    "content": "Перевірте свої знання з основ",
+    "items": [
+      {
+        "question": "Що таке Git?",
+        "options": ["Система контролю версій", "Мова програмування", "База даних"],
+        "correct": 0
+      }
+    ]
+  },
+  {
+    "type": "practice",
+    "title": "Практичне завдання",
+    "content": "Створіть свій перший Git репозиторій",
+    "duration": 10,
+    "items": [
+      "Встановіть Git на свій комп'ютер",
+      "Ініціалізуйте новий репозиторій",
+      "Зробіть перший коміт"
     ]
   }
-]`;
+]
+
+Створи 3-5 модулів тривалістю до 30 хвилин кожен.
+Використовуй доступні матеріали організації та знайди корисні зовнішні ресурси.
+Пам'ятай: кожен модуль має бути КОРОТКИМ (≤30 хв) і містити різноманітний контент.
+
+Посади користувача: ${userPositions?.map((p: any) => p.positions?.name || 'Не вказано').join(', ') || 'Не вказано'}
+Доступні матеріали: ${orgMaterials?.map((m: any) => m.title).join(', ') || 'Немає'}`;
+
+    const userPrompt = `Створи персоналізовані навчальні модулі для цього користувача.
+Кожен модуль має містити структурований контент (текст, відео, квізи, практичні завдання).
+Обов'язково включи посилання на реальні відео-уроки з YouTube, корисні статті та інструменти.
+Використовуй матеріали організації де це можливо.
+
+Формат відповіді:
+{
+  "modules": [
+    {
+      "title": "...",
+      "description": "...",
+      "duration": 25,
+      "category": "...",
+      "difficulty": "beginner",
+      "content": [...],
+      "resources": [...]
+    }
+  ]
+}`;
 
     console.log('Calling Lovable AI...');
-
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${lovableApiKey}`,
@@ -92,31 +142,42 @@ ${materialsContext}
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.7,
       }),
     });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('Lovable AI error:', aiResponse.status, errorText);
-      throw new Error(`AI request failed: ${aiResponse.status}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Lovable AI error:', response.status, errorText);
+      throw new Error(`AI API error: ${response.status}`);
     }
 
-    const aiData = await aiResponse.json();
-    const generatedContent = aiData.choices[0].message.content;
-    
+    const aiResponse = await response.json();
     console.log('AI Response received');
-
-    // Parse JSON from AI response
-    const jsonMatch = generatedContent.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      throw new Error('Could not parse JSON from AI response');
+    
+    const generatedContent = aiResponse.choices[0].message.content;
+    let modulesData;
+    
+    try {
+      // Try to extract JSON from markdown code blocks if present
+      const jsonMatch = generatedContent.match(/```json\s*([\s\S]*?)\s*```/) || 
+                       generatedContent.match(/```\s*([\s\S]*?)\s*```/) ||
+                       [null, generatedContent];
+      
+      const jsonContent = jsonMatch[1] || generatedContent;
+      const parsed = JSON.parse(jsonContent.trim());
+      modulesData = parsed.modules || parsed;
+      
+      if (!Array.isArray(modulesData)) {
+        throw new Error('Generated content is not an array');
+      }
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError);
+      console.error('Raw response:', generatedContent);
+      throw new Error('Invalid AI response format');
     }
-
-    const modules = JSON.parse(jsonMatch[0]);
 
     // Save modules to database
-    const modulesToInsert = modules.map((module: any) => ({
+    const modulesToInsert = modulesData.map((module: any) => ({
       organization_id: organizationId,
       user_id: userId,
       position_id: userPositions?.[0]?.position_id || null,
@@ -125,7 +186,8 @@ ${materialsContext}
       duration: module.duration,
       category: module.category,
       difficulty: module.difficulty,
-      resources: module.resources,
+      content: module.content || [],
+      resources: module.resources || [],
       completed: false,
     }));
 

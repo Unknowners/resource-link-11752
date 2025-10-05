@@ -6,8 +6,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, BookOpen, Clock, ExternalLink, FileText, CheckCircle2 } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ArrowLeft, BookOpen, Clock, ExternalLink, FileText, CheckCircle2, Video, ClipboardList, Brain, Calendar } from "lucide-react";
 import { toast } from "sonner";
+
+interface ContentSection {
+  type: 'text' | 'video' | 'quiz' | 'practice' | 'checklist';
+  title: string;
+  content: string;
+  duration?: number;
+  url?: string;
+  items?: any[];
+}
 
 interface Module {
   id: string;
@@ -16,7 +26,7 @@ interface Module {
   duration: number;
   category: string;
   difficulty: string;
-  content: any;
+  content: ContentSection[] | any;
   resources: Array<{
     name: string;
     url: string;
@@ -87,6 +97,20 @@ export default function ModuleDetail() {
     }
   };
 
+  const addToCalendar = () => {
+    toast.success("Функція календаря буде додана найближчим часом!");
+  };
+
+  const getSectionIcon = (type: string) => {
+    switch (type) {
+      case 'video': return <Video className="h-4 w-4" />;
+      case 'quiz': return <Brain className="h-4 w-4" />;
+      case 'practice': return <ClipboardList className="h-4 w-4" />;
+      case 'checklist': return <CheckCircle2 className="h-4 w-4" />;
+      default: return <FileText className="h-4 w-4" />;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -149,11 +173,93 @@ export default function ModuleDetail() {
         <CardContent className="space-y-6">
           <Separator />
 
+          {/* Learning Content */}
+          {module.content && Array.isArray(module.content) && module.content.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Навчальний контент
+              </h3>
+              <Accordion type="single" collapsible className="w-full">
+                {module.content.map((section: ContentSection, index: number) => (
+                  <AccordionItem key={index} value={`section-${index}`}>
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-3">
+                        {getSectionIcon(section.type)}
+                        <div className="text-left">
+                          <div className="font-medium">{section.title}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {section.type === 'video' && 'Відео'}
+                            {section.type === 'quiz' && 'Тест'}
+                            {section.type === 'practice' && 'Практика'}
+                            {section.type === 'checklist' && 'Чекліст'}
+                            {section.type === 'text' && 'Текст'}
+                            {section.duration && ` • ${section.duration} хв`}
+                          </div>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="pt-4 space-y-3">
+                        <p className="text-sm text-muted-foreground">{section.content}</p>
+                        
+                        {section.url && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(section.url, "_blank")}
+                            className="w-full sm:w-auto"
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Відкрити відео
+                          </Button>
+                        )}
+                        
+                        {section.items && section.items.length > 0 && (
+                          <div className="space-y-2">
+                            {section.type === 'quiz' && (
+                              <div className="space-y-3">
+                                {section.items.map((item: any, idx: number) => (
+                                  <Card key={idx} className="p-3">
+                                    <p className="font-medium text-sm mb-2">{item.question}</p>
+                                    <div className="space-y-1">
+                                      {item.options?.map((option: string, optIdx: number) => (
+                                        <div key={optIdx} className="text-sm p-2 rounded hover:bg-accent/50 cursor-pointer">
+                                          {option}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </Card>
+                                ))}
+                              </div>
+                            )}
+                            {(section.type === 'practice' || section.type === 'checklist') && (
+                              <ul className="space-y-2">
+                                {section.items.map((item: string, idx: number) => (
+                                  <li key={idx} className="flex items-start gap-2 text-sm">
+                                    <CheckCircle2 className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </div>
+          )}
+
+          <Separator />
+
           {/* Resources Section */}
           <div>
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Навчальні матеріали
+              Додаткові матеріали
             </h3>
             <ScrollArea className="h-[400px] rounded-md border p-4">
               <div className="space-y-3">
@@ -194,15 +300,20 @@ export default function ModuleDetail() {
 
           <Separator />
 
-          {/* Action Button */}
-          <div className="flex justify-end">
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-end">
+            <Button onClick={addToCalendar} variant="outline" size="lg">
+              <Calendar className="mr-2 h-5 w-5" />
+              Додати в календар
+            </Button>
             {!module.completed ? (
               <Button onClick={markAsCompleted} size="lg">
                 <CheckCircle2 className="mr-2 h-5 w-5" />
                 Позначити як завершений
               </Button>
             ) : (
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
                 Завершено {new Date(module.completed_at!).toLocaleDateString("uk-UA")}
               </div>
             )}
