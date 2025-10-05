@@ -3,11 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Send, Sparkles, Loader2, ExternalLink, Plus, MessageSquare, Trash2 } from "lucide-react";
+import { Send, Sparkles, Loader2, ExternalLink, Plus, MessageSquare, Trash2, Video } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Source {
   id: string;
@@ -47,6 +49,10 @@ export default function KnowledgeBase() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [videoText, setVideoText] = useState("");
+  const [videoGenerating, setVideoGenerating] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -280,6 +286,59 @@ export default function KnowledgeBase() {
     }
   };
 
+  const generateVideo = async () => {
+    if (!videoText.trim()) {
+      toast.error("Введіть текст для відео");
+      return;
+    }
+
+    setVideoGenerating(true);
+    setVideoUrl(null);
+    setCurrentVideoId(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-heygen-video', {
+        body: { text: videoText }
+      });
+
+      if (error) throw error;
+
+      if (data.video_id) {
+        setCurrentVideoId(data.video_id);
+        toast.success("Відео генерується, зачекайте...");
+        checkVideoStatus(data.video_id);
+      }
+    } catch (error) {
+      console.error('Error generating video:', error);
+      toast.error("Помилка генерації відео");
+      setVideoGenerating(false);
+    }
+  };
+
+  const checkVideoStatus = async (videoId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('check-heygen-video', {
+        body: { videoId }
+      });
+
+      if (error) throw error;
+
+      if (data.status === 'completed' && data.video_url) {
+        setVideoUrl(data.video_url);
+        setVideoGenerating(false);
+        toast.success("Відео готове!");
+      } else if (data.status === 'processing' || data.status === 'pending') {
+        setTimeout(() => checkVideoStatus(videoId), 5000);
+      } else if (data.status === 'failed') {
+        throw new Error('Video generation failed');
+      }
+    } catch (error) {
+      console.error('Error checking video status:', error);
+      toast.error("Помилка перевірки статусу відео");
+      setVideoGenerating(false);
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-4rem)]">
       {/* Sidebar */}
@@ -326,7 +385,20 @@ export default function KnowledgeBase() {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        <Card className="flex-1 flex flex-col overflow-hidden border-0 rounded-none">
+        <Tabs defaultValue="chat" className="flex-1 flex flex-col">
+          <TabsList className="mx-4 mt-4 w-fit">
+            <TabsTrigger value="chat" className="gap-2">
+              <MessageSquare className="h-4 w-4" />
+              База знань
+            </TabsTrigger>
+            <TabsTrigger value="onboarding" className="gap-2">
+              <Video className="h-4 w-4" />
+              Онбординг
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="chat" className="flex-1 mt-0">
+            <Card className="h-full flex flex-col overflow-hidden border-0 rounded-none">
         <ScrollArea className="flex-1 p-4 sm:p-6" ref={scrollAreaRef}>
           {loadingHistory ? (
             <div className="flex items-center justify-center h-full">
@@ -454,6 +526,75 @@ export default function KnowledgeBase() {
           </div>
         </div>
       </Card>
+      </TabsContent>
+
+      <TabsContent value="onboarding" className="flex-1 mt-0">
+        <Card className="h-full flex flex-col overflow-hidden border-0 rounded-none p-6">
+          <div className="max-w-2xl mx-auto w-full space-y-6">
+            <div className="text-center space-y-3">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <Video className="h-8 w-8 text-white" />
+              </div>
+              <h2 className="font-display text-3xl">Онбординг відео</h2>
+              <p className="text-muted-foreground">
+                Створіть персоналізоване онбординг відео з AI-аватаром
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Текст для відео</label>
+                <Textarea
+                  value={videoText}
+                  onChange={(e) => setVideoText(e.target.value)}
+                  placeholder="Введіть текст, який має прочитати аватар..."
+                  className="min-h-32 resize-none"
+                  disabled={videoGenerating}
+                />
+              </div>
+
+              <Button
+                onClick={generateVideo}
+                disabled={videoGenerating || !videoText.trim()}
+                className="w-full h-12"
+                size="lg"
+              >
+                {videoGenerating ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Генерується відео...
+                  </>
+                ) : (
+                  <>
+                    <Video className="h-5 w-5 mr-2" />
+                    Згенерувати відео
+                  </>
+                )}
+              </Button>
+
+              {videoUrl && (
+                <Card className="p-4 space-y-3">
+                  <h3 className="font-semibold">Ваше відео готове!</h3>
+                  <video
+                    src={videoUrl}
+                    controls
+                    className="w-full rounded-lg"
+                  />
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => window.open(videoUrl, '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Відкрити у новій вкладці
+                  </Button>
+                </Card>
+              )}
+            </div>
+          </div>
+        </Card>
+      </TabsContent>
+      </Tabs>
       </div>
     </div>
   );
