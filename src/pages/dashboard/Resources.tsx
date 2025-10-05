@@ -15,6 +15,16 @@ interface Resource {
   last_synced_at?: string;
 }
 
+interface OnboardingMaterial {
+  id: string;
+  title: string;
+  description: string | null;
+  file_name: string;
+  file_path: string;
+  bucket: string;
+  mime_type: string | null;
+}
+
 const getResourceIcon = (type: string) => {
   switch (type.toLowerCase()) {
     case "document":
@@ -41,6 +51,7 @@ const getIntegrationColor = (integration: string) => {
 
 export default function Resources() {
   const [resources, setResources] = useState<Resource[]>([]);
+  const [materials, setMaterials] = useState<OnboardingMaterial[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -79,23 +90,68 @@ export default function Resources() {
 
       const accessibleResourceIds = [...new Set(accessiblePermissions?.map(p => p.resource_id) || [])];
 
-      // If user has no groups or no accessible resources, show empty
-      if (accessibleResourceIds.length === 0) {
+      // Fetch resources (or empty array if no access)
+      if (accessibleResourceIds.length > 0) {
+        const { data: resourcesData } = await supabase
+          .from('resources')
+          .select('*')
+          .eq('organization_id', member.organization_id)
+          .eq('status', 'active')
+          .in('id', accessibleResourceIds)
+          .order('name');
+
+        setResources(resourcesData || []);
+      } else {
         setResources([]);
-        setLoading(false);
-        return;
       }
 
-      // Fetch only accessible resources
-      const { data: resourcesData } = await supabase
-        .from('resources')
-        .select('*')
-        .eq('organization_id', member.organization_id)
-        .eq('status', 'active')
-        .in('id', accessibleResourceIds)
-        .order('name');
+      // Get user's positions
+      const { data: userPositions } = await supabase
+        .from('user_positions')
+        .select('position_id')
+        .eq('user_id', user.id)
+        .eq('organization_id', member.organization_id);
 
-      setResources(resourcesData || []);
+      const userPositionIds = userPositions?.map(p => p.position_id) || [];
+
+      if (userPositionIds.length > 0) {
+        // Get all ancestor positions (including self and parents via hierarchy)
+        const { data: hierarchy } = await supabase
+          .from('position_hierarchy')
+          .select('ancestor_id')
+          .in('descendant_id', userPositionIds)
+          .eq('organization_id', member.organization_id);
+
+        const allPositionIds = [...new Set(hierarchy?.map(h => h.ancestor_id) || [])];
+
+        if (allPositionIds.length > 0) {
+          // Get materials for these positions
+          const { data: positionMaterialLinks } = await supabase
+            .from('position_materials')
+            .select('material_id')
+            .in('position_id', allPositionIds)
+            .eq('organization_id', member.organization_id);
+
+          const materialIds = [...new Set(positionMaterialLinks?.map(pm => pm.material_id) || [])];
+
+          if (materialIds.length > 0) {
+            const { data: materialsData } = await supabase
+              .from('onboarding_materials')
+              .select('id, title, description, file_name, file_path, bucket, mime_type')
+              .in('id', materialIds)
+              .eq('organization_id', member.organization_id)
+              .order('title');
+
+            setMaterials(materialsData || []);
+          } else {
+            setMaterials([]);
+          }
+        } else {
+          setMaterials([]);
+        }
+      } else {
+        setMaterials([]);
+      }
     } catch (error) {
       console.error('Error loading resources:', error);
     } finally {
@@ -108,6 +164,33 @@ export default function Resources() {
     resource.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
     resource.integration.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const filteredMaterials = materials.filter((material) =>
+    material.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (material.description && material.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    material.file_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const downloadMaterial = async (material: OnboardingMaterial) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from(material.bucket)
+        .download(material.file_path);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = material.file_name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading material:', error);
+    }
+  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -135,7 +218,7 @@ export default function Resources() {
         <div className="text-center text-muted-foreground py-12">
           Завантаження...
         </div>
-      ) : filteredResources.length === 0 ? (
+      ) : filteredResources.length === 0 && filteredMaterials.length === 0 ? (
         <Card className="border-2">
           <CardContent className="p-12 text-center">
             <Cloud className="h-16 w-16 mx-auto text-muted-foreground mb-4 opacity-50" />
@@ -150,54 +233,114 @@ export default function Resources() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredResources.map((resource) => {
-            const Icon = getResourceIcon(resource.type);
-            return (
-              <Card
-                key={resource.id}
-                className="hover:shadow-lg transition-shadow border-2 cursor-default"
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
-                        <Icon className="h-5 w-5 text-white" />
+        <>
+          {/* Onboarding Materials Section */}
+          {filteredMaterials.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                <h2 className="font-semibold text-lg">Матеріали онбордингу</h2>
+                <Badge variant="secondary">{filteredMaterials.length}</Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredMaterials.map((material) => (
+                  <Card
+                    key={material.id}
+                    className="hover:shadow-lg transition-shadow border-2 cursor-pointer"
+                    onClick={() => downloadMaterial(material)}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
+                            <FileText className="h-5 w-5 text-white" />
+                          </div>
+                          <CardTitle className="text-base truncate">
+                            {material.title}
+                          </CardTitle>
+                        </div>
                       </div>
-                      <CardTitle className="text-base truncate">
-                        {resource.name}
-                      </CardTitle>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge
-                      variant="outline"
-                      className={getIntegrationColor(resource.integration)}
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {material.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {material.description}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                          Матеріал посади
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {material.file_name}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Integration Resources Section */}
+          {filteredResources.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Cloud className="h-5 w-5 text-primary" />
+                <h2 className="font-semibold text-lg">Ресурси інтеграцій</h2>
+                <Badge variant="secondary">{filteredResources.length}</Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredResources.map((resource) => {
+                  const Icon = getResourceIcon(resource.type);
+                  return (
+                    <Card
+                      key={resource.id}
+                      className="hover:shadow-lg transition-shadow border-2 cursor-default"
                     >
-                      {resource.integration}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {resource.type}
-                    </Badge>
-                  </div>
-                  {resource.url && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {resource.url}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
+                              <Icon className="h-5 w-5 text-white" />
+                            </div>
+                            <CardTitle className="text-base truncate">
+                              {resource.name}
+                            </CardTitle>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                          <Badge
+                            variant="outline"
+                            className={getIntegrationColor(resource.integration)}
+                          >
+                            {resource.integration}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {resource.type}
+                          </Badge>
+                        </div>
+                        {resource.url && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {resource.url}
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Stats */}
       <div className="pt-4 border-t">
         <p className="text-sm text-muted-foreground text-center">
-          Всього доступно: <span className="font-semibold text-foreground">{filteredResources.length}</span> {filteredResources.length === 1 ? 'ресурс' : 'ресурсів'}
+          Всього доступно: <span className="font-semibold text-foreground">{filteredResources.length + filteredMaterials.length}</span> {(filteredResources.length + filteredMaterials.length) === 1 ? 'ресурс' : 'ресурсів'}
         </p>
       </div>
     </div>
