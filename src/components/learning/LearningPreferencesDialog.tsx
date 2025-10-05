@@ -15,22 +15,11 @@ interface LearningPreferencesDialogProps {
   onSaved?: () => void;
 }
 
-const DAYS_OF_WEEK = [
-  { value: "monday", label: "Понеділок" },
-  { value: "tuesday", label: "Вівторок" },
-  { value: "wednesday", label: "Середа" },
-  { value: "thursday", label: "Четвер" },
-  { value: "friday", label: "П'ятниця" },
-  { value: "saturday", label: "Субота" },
-  { value: "sunday", label: "Неділя" },
-];
-
 export function LearningPreferencesDialog({ open, onOpenChange, onSaved }: LearningPreferencesDialogProps) {
   const [preferredTopics, setPreferredTopics] = useState<string[]>([]);
   const [topicInput, setTopicInput] = useState("");
   const [learningPace, setLearningPace] = useState<string>("moderate");
   const [preferredDuration, setPreferredDuration] = useState<number>(20);
-  const [preferredDays, setPreferredDays] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -55,7 +44,6 @@ export function LearningPreferencesDialog({ open, onOpenChange, onSaved }: Learn
         setPreferredTopics(prefs.preferred_topics || []);
         setLearningPace(prefs.learning_pace || 'moderate');
         setPreferredDuration(prefs.preferred_duration || 20);
-        setPreferredDays(prefs.preferred_days || []);
       }
     } catch (error) {
       console.error('Error loading preferences:', error);
@@ -71,14 +59,6 @@ export function LearningPreferencesDialog({ open, onOpenChange, onSaved }: Learn
 
   const removeTopic = (topic: string) => {
     setPreferredTopics(preferredTopics.filter(t => t !== topic));
-  };
-
-  const toggleDay = (day: string) => {
-    setPreferredDays(prev => 
-      prev.includes(day) 
-        ? prev.filter(d => d !== day)
-        : [...prev, day]
-    );
   };
 
   const handleSave = async () => {
@@ -109,7 +89,6 @@ export function LearningPreferencesDialog({ open, onOpenChange, onSaved }: Learn
           preferred_topics: preferredTopics,
           learning_pace: learningPace,
           preferred_duration: preferredDuration,
-          preferred_days: preferredDays,
         }, {
           onConflict: 'user_id'
         });
@@ -198,24 +177,6 @@ export function LearningPreferencesDialog({ open, onOpenChange, onSaved }: Learn
                 <SelectItem value="30">30 хвилин - поглиблене вивчення</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-
-          {/* Preferred Days */}
-          <div className="space-y-2">
-            <Label>Коли вам зручно навчатися?</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {DAYS_OF_WEEK.map((day) => (
-                <Button
-                  key={day.value}
-                  type="button"
-                  variant={preferredDays.includes(day.value) ? "default" : "outline"}
-                  className="w-full"
-                  onClick={() => toggleDay(day.value)}
-                >
-                  {day.label}
-                </Button>
-              ))}
-            </div>
           </div>
         </div>
 
