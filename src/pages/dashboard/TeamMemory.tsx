@@ -358,11 +358,26 @@ export default function TeamMemory() {
     }
   };
 
+  const handleSpinStart = () => {
+    const filteredIdeas = ideas.filter(idea => !idea.archived && idea.status === 'active');
+    
+    if (filteredIdeas.length === 0) {
+      toast({
+        title: "Упс!",
+        description: "Немає активних ідей для обертання барабану",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSpinDialogOpen(true);
+  };
+
   const handleSpin = (selectedItem: string) => {
     const idea = ideas.find(i => i.title === selectedItem);
     if (idea) {
       setSelectedIdea(idea);
-      setIsSpinDialogOpen(true);
+      setSpinning(false);
     }
   };
 
@@ -542,12 +557,10 @@ export default function TeamMemory() {
             </DialogContent>
           </Dialog>
 
-          <div className="w-full max-w-md">
-            <SlotMachine 
-              items={activeIdeas.map(idea => idea.title)}
-              onResult={handleSpin}
-            />
-          </div>
+          <Button variant="secondary" onClick={handleSpinStart} disabled={activeIdeas.length === 0}>
+            <Sparkles className="h-4 w-4 mr-2" />
+            Крутнути барабан
+          </Button>
         </div>
       </div>
 
@@ -570,28 +583,26 @@ export default function TeamMemory() {
       </div>
 
       {/* Spin Dialog */}
-      <Dialog open={isSpinDialogOpen || spinning} onOpenChange={(open) => {
-        if (!spinning) setIsSpinDialogOpen(open);
-      }}>
+      <Dialog open={isSpinDialogOpen} onOpenChange={setIsSpinDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              {spinning ? "Крутимо барабан..." : "Барабан обрав ідею!"}
+              {!selectedIdea ? "Крутимо барабан..." : "Барабан обрав ідею!"}
             </DialogTitle>
           </DialogHeader>
 
-          {/* Spin Animation */}
-          {spinning && (
-            <div className="py-8">
-              <SpinAnimation isSpinning={spinning} />
-              <p className="text-center text-muted-foreground mt-4">
-                Обираємо випадкову ідею...
-              </p>
+          {/* Slot Machine */}
+          {!selectedIdea && (
+            <div className="py-4">
+              <SlotMachine 
+                items={activeIdeas.map(idea => idea.title)}
+                onResult={handleSpin}
+              />
             </div>
           )}
 
-          {selectedIdea && !spinning && (
+          {selectedIdea && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
