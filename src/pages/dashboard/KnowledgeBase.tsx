@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Send, Sparkles, Loader2, ExternalLink, Plus, MessageSquare, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Send, Sparkles, Loader2, ExternalLink, Plus, MessageSquare, Trash2, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -54,9 +54,8 @@ export default function KnowledgeBase() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const topObserverRef = useRef<HTMLDivElement>(null);
 
-  const MESSAGES_PER_PAGE = 10;
+  const MESSAGES_PER_PAGE = 20;
 
   useEffect(() => {
     loadConversations();
@@ -120,11 +119,13 @@ export default function KnowledgeBase() {
         }));
         
         setMessages(loadedMessages);
-        setOldestMessageTimestamp(messagesData[messagesData.length - 1].created_at);
+        const oldestMsg = messagesData[messagesData.length - 1];
+        setOldestMessageTimestamp(oldestMsg.created_at);
         setHasMoreMessages(messagesData.length === MESSAGES_PER_PAGE);
       } else {
         setMessages([]);
         setHasMoreMessages(false);
+        setOldestMessageTimestamp(null);
       }
     } catch (error) {
       console.error('Error loading conversation:', error);
@@ -158,7 +159,8 @@ export default function KnowledgeBase() {
         }));
         
         setMessages(prev => [...loadedMessages, ...prev]);
-        setOldestMessageTimestamp(messagesData[messagesData.length - 1].created_at);
+        const oldestMsg = messagesData[messagesData.length - 1];
+        setOldestMessageTimestamp(oldestMsg.created_at);
         setHasMoreMessages(messagesData.length === MESSAGES_PER_PAGE);
       } else {
         setHasMoreMessages(false);
@@ -171,22 +173,6 @@ export default function KnowledgeBase() {
     }
   };
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMoreMessages && !loadingMore) {
-          loadMoreMessages();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (topObserverRef.current) {
-      observer.observe(topObserverRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [hasMoreMessages, loadingMore, oldestMessageTimestamp]);
 
   const createNewConversation = async () => {
     try {
@@ -393,14 +379,14 @@ export default function KnowledgeBase() {
           <ScrollArea className="flex-1 px-3 py-2">
             <div className="space-y-1">
               {conversations.map((conv) => (
-                <button
+                <div
                   key={conv.id}
-                  onClick={() => loadConversation(conv.id)}
-                  className={`w-full text-left p-2 rounded-lg transition-all group flex items-center justify-between ${
+                  className={`w-full text-left p-2 rounded-lg transition-all group flex items-center justify-between cursor-pointer ${
                     conversationId === conv.id 
                       ? 'bg-primary/10 border border-primary/20' 
                       : 'hover:bg-accent/50'
                   }`}
+                  onClick={() => loadConversation(conv.id)}
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <MessageSquare className={`h-4 w-4 flex-shrink-0 ${
@@ -420,7 +406,7 @@ export default function KnowledgeBase() {
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   )}
-                </button>
+                </div>
               ))}
             </div>
           </ScrollArea>
@@ -463,13 +449,29 @@ export default function KnowledgeBase() {
             </div>
           ) : (
             <div className="space-y-6 max-w-4xl mx-auto">
-              <div ref={topObserverRef} className="h-4">
-                {loadingMore && (
-                  <div className="flex justify-center py-2">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                )}
-              </div>
+              {hasMoreMessages && (
+                <div className="flex justify-center py-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadMoreMessages}
+                    disabled={loadingMore}
+                    className="gap-2"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Завантаження...
+                      </>
+                    ) : (
+                      <>
+                        <ChevronUp className="h-4 w-4" />
+                        Завантажити старіші
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
 
               {messages.map((message, index) => (
               <div
