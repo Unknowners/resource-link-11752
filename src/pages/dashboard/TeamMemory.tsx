@@ -13,6 +13,10 @@ import { uk } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { SpinAnimation } from "@/components/team-memory/SpinAnimation";
+import { EnvelopeAnimation } from "@/components/team-memory/EnvelopeAnimation";
+import { IdeaStorageAnimation } from "@/components/team-memory/IdeaStorageAnimation";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Idea {
   id: string;
@@ -57,6 +61,8 @@ export default function TeamMemory() {
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [spinning, setSpinning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [filterProject, setFilterProject] = useState<string>("all");
   const { toast } = useToast();
@@ -171,8 +177,13 @@ export default function TeamMemory() {
     if (!organizationId) return;
 
     try {
+      setIsSubmitting(true);
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Wait for envelope flying animation
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       const { error } = await supabase
         .from('team_ideas')
@@ -191,16 +202,26 @@ export default function TeamMemory() {
 
       if (error) throw error;
 
+      // Show success animation
+      setShowSuccess(true);
+      
       toast({
         title: "Успіх",
         description: "Ідею додано успішно"
       });
 
+      // Wait for success animation
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       setNewIdea({ title: "", content: "", project_id: "", scheduled_reminder_date: "" });
       setIsDialogOpen(false);
+      setIsSubmitting(false);
+      setShowSuccess(false);
       loadIdeas();
     } catch (error) {
       console.error('Error adding idea:', error);
+      setIsSubmitting(false);
+      setShowSuccess(false);
       toast({
         title: "Помилка",
         description: "Не вдалося додати ідею",
@@ -420,7 +441,9 @@ export default function TeamMemory() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            if (!isSubmitting) setIsDialogOpen(open);
+          }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
@@ -434,8 +457,32 @@ export default function TeamMemory() {
                   Додайте нову ідею або нотатку для команди
                 </DialogDescription>
               </DialogHeader>
+
+              {/* Envelope Animation */}
+              <EnvelopeAnimation 
+                isOpen={isDialogOpen} 
+                isSubmitting={isSubmitting}
+              />
+
+              {/* Storage Animation on Success */}
+              <AnimatePresence>
+                {showSuccess && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                  >
+                    <IdeaStorageAnimation showSuccess={showSuccess} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <ScrollArea className="max-h-[60vh]">
-                <div className="space-y-4 pr-4">
+                <motion.div 
+                  className="space-y-4 pr-4"
+                  animate={isDialogOpen ? { opacity: 1, y: 0 } : { opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
                   <div>
                     <Label htmlFor="title">Назва</Label>
                     <Input
@@ -480,10 +527,21 @@ export default function TeamMemory() {
                       onChange={(e) => setNewIdea({ ...newIdea, scheduled_reminder_date: e.target.value })}
                     />
                   </div>
-                </div>
+                </motion.div>
               </ScrollArea>
-              <Button onClick={handleAddIdea} className="w-full mt-4">
-                Зберегти
+              <Button 
+                onClick={handleAddIdea} 
+                className="w-full mt-4"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Відправляємо...
+                  </>
+                ) : (
+                  "Зберегти"
+                )}
               </Button>
             </DialogContent>
           </Dialog>
@@ -524,15 +582,26 @@ export default function TeamMemory() {
 
       {/* Spin Dialog */}
       <Dialog open={isSpinDialogOpen} onOpenChange={setIsSpinDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
               Барабан обрав ідею!
             </DialogTitle>
           </DialogHeader>
-          {selectedIdea && (
-            <div className="space-y-4">
+
+          {/* Spin Animation */}
+          {spinning && (
+            <SpinAnimation isSpinning={spinning} />
+          )}
+
+          {selectedIdea && !spinning && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-4"
+            >
               <div>
                 <h3 className="font-semibold text-lg">{selectedIdea.title}</h3>
                 {selectedIdea.project_name && (
@@ -566,7 +635,7 @@ export default function TeamMemory() {
                   🗑️ Архівувати
                 </Button>
               </div>
-            </div>
+            </motion.div>
           )}
         </DialogContent>
       </Dialog>
@@ -636,8 +705,14 @@ export default function TeamMemory() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {activeIdeas.map((idea) => (
-            <Card key={idea.id} className="hover:shadow-lg transition-shadow">
+          {activeIdeas.map((idea, index) => (
+            <motion.div
+              key={idea.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: index * 0.05 }}
+            >
+              <Card className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <CardTitle className="text-base">{idea.title}</CardTitle>
@@ -693,6 +768,7 @@ export default function TeamMemory() {
                 </div>
               </CardContent>
             </Card>
+            </motion.div>
           ))}
         </div>
       )}
