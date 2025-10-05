@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sparkles, RotateCw } from "lucide-react";
@@ -26,7 +26,7 @@ export const SlotMachine = ({ items, onResult, spinning: externalSpinning }: Slo
     }
   }, [externalSpinning]);
 
-  const spin = () => {
+  const spin = useCallback(() => {
     if (spinning || items.length === 0) return;
 
     setSpinning(true);
@@ -68,7 +68,7 @@ export const SlotMachine = ({ items, onResult, spinning: externalSpinning }: Slo
     };
 
     animationRef.current = requestAnimationFrame(animate);
-  };
+  }, [items, onResult, spinning]);
 
   useEffect(() => {
     return () => {

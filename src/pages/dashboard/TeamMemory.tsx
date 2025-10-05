@@ -16,6 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SpinAnimation } from "@/components/team-memory/SpinAnimation";
 import { EnvelopeAnimation } from "@/components/team-memory/EnvelopeAnimation";
 import { IdeaStorageAnimation } from "@/components/team-memory/IdeaStorageAnimation";
+import { SlotMachine } from "@/components/team-memory/SlotMachine";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Idea {
@@ -357,31 +358,12 @@ export default function TeamMemory() {
     }
   };
 
-  const handleSpin = async () => {
-    setSpinning(true);
-    
-    let filteredIdeas = ideas.filter(idea => !idea.archived && idea.status === 'active');
-    
-    if (filterProject !== "all") {
-      filteredIdeas = filteredIdeas.filter(idea => idea.project_id === filterProject);
+  const handleSpin = (selectedItem: string) => {
+    const idea = ideas.find(i => i.title === selectedItem);
+    if (idea) {
+      setSelectedIdea(idea);
+      setIsSpinDialogOpen(true);
     }
-
-    if (filteredIdeas.length === 0) {
-      toast({
-        title: "Упс!",
-        description: "Немає активних ідей для обертання барабану",
-        variant: "destructive"
-      });
-      setSpinning(false);
-      return;
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    const randomIdea = filteredIdeas[Math.floor(Math.random() * filteredIdeas.length)];
-    setSelectedIdea(randomIdea);
-    setSpinning(false);
-    setIsSpinDialogOpen(true);
   };
 
   const handlePostpone = async (id: string, days: number) => {
@@ -560,19 +542,12 @@ export default function TeamMemory() {
             </DialogContent>
           </Dialog>
 
-          <Button variant="secondary" onClick={handleSpin} disabled={spinning || activeIdeas.length === 0}>
-            {spinning ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Крутимо...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Крутнути барабан
-              </>
-            )}
-          </Button>
+          <div className="w-full max-w-md">
+            <SlotMachine 
+              items={activeIdeas.map(idea => idea.title)}
+              onResult={handleSpin}
+            />
+          </div>
         </div>
       </div>
 
