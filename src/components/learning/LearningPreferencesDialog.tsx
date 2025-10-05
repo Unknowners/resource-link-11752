@@ -224,7 +224,7 @@ export function LearningPreferencesDialog({ open, onOpenChange, onSaved }: Learn
             Скасувати
           </Button>
           <Button onClick={handleSave} disabled={isSubmitting}>
-            {isSubmitting ? "Збереження..." : "Зберегти"}
+            {isSubmitting ? "Збереження..." : "Зберегти та згенерувати"}
           </Button>
         </DialogFooter>
       </DialogContent>

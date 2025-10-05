@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LearningCalendar } from "@/components/learning/LearningCalendar";
 import { LearningPreferencesDialog } from "@/components/learning/LearningPreferencesDialog";
-import { BookOpen, Clock, CheckCircle2, PlayCircle, Calendar, Loader2, Sparkles, ArrowRight, Settings } from "lucide-react";
+import { BookOpen, Clock, CheckCircle2, PlayCircle, Calendar, Loader2, Sparkles, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -67,6 +67,10 @@ export default function SkillSmith() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const openPreferencesForGeneration = () => {
+    setPreferencesOpen(true);
   };
 
   const generateModules = async () => {
@@ -168,39 +172,32 @@ export default function SkillSmith() {
             Персональне навчання та розвиток навичок на основі AI
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={() => setPreferencesOpen(true)}
-            variant="outline"
-            className="gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            Налаштування
-          </Button>
-          <Button 
-            onClick={generateModules}
-            disabled={isGenerating}
-            className="gap-2"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Генерується...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Згенерувати модулі
-              </>
-            )}
-          </Button>
-        </div>
+        <Button 
+          onClick={openPreferencesForGeneration}
+          disabled={isGenerating}
+          className="gap-2"
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Генерується...
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4" />
+              Згенерувати модулі
+            </>
+          )}
+        </Button>
       </div>
 
       <LearningPreferencesDialog 
         open={preferencesOpen}
         onOpenChange={setPreferencesOpen}
-        onSaved={loadModules}
+        onSaved={() => {
+          setPreferencesOpen(false);
+          generateModules();
+        }}
       />
 
       <Tabs defaultValue="modules" className="w-full">
@@ -239,7 +236,7 @@ export default function SkillSmith() {
                   Натисніть кнопку "Згенерувати модулі", щоб AI створив персоналізовані<br />
                   навчальні матеріали на основі вашої посади та доступних ресурсів
                 </p>
-                <Button onClick={generateModules} disabled={isGenerating}>
+                <Button onClick={openPreferencesForGeneration} disabled={isGenerating}>
                   <Sparkles className="h-4 w-4 mr-2" />
                   Згенерувати модулі
                 </Button>
