@@ -29,6 +29,15 @@ serve(async (req) => {
 
     console.log('User positions:', userPositions?.length || 0);
 
+    // Get user's learning preferences
+    const { data: preferences } = await supabase
+      .from('learning_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    console.log('User preferences:', preferences ? 'Found' : 'Not found');
+
     // Get organization materials
     const { data: orgMaterials } = await supabase
       .from('onboarding_materials')
@@ -101,17 +110,27 @@ serve(async (req) => {
   }
 ]
 
-Створи 3-5 модулів тривалістю до 30 хвилин кожен.
+Створи 3-5 модулів тривалістю до ${preferences?.preferred_duration || 30} хвилин кожен.
 Використовуй доступні матеріали організації та знайди корисні зовнішні ресурси.
-Пам'ятай: кожен модуль має бути КОРОТКИМ (≤30 хв) і містити різноманітний контент.
+Пам'ятай: кожен модуль має бути КОРОТКИМ і містити різноманітний контент.
 
-Посади користувача: ${userPositions?.map((p: any) => p.positions?.name || 'Не вказано').join(', ') || 'Не вказано'}
-Доступні матеріали: ${orgMaterials?.map((m: any) => m.title).join(', ') || 'Немає'}`;
+ВАЖЛИВО: Враховуй наступну інформацію про користувача:
+- Посади: ${userPositions?.map((p: any) => p.positions?.name || 'Не вказано').join(', ') || 'Не вказано (створи загальні модулі)'}
+- Теми для вивчення: ${preferences?.preferred_topics?.join(', ') || 'Не вказано (обирай актуальні для посади)'}
+- Темп навчання: ${preferences?.learning_pace || 'moderate'}
+- Бажана тривалість модуля: ${preferences?.preferred_duration || 30} хв
+- Доступні матеріали організації: ${orgMaterials?.map((m: any) => m.title).join(', ') || 'Немає'}
+
+Якщо посада НЕ вказана - створюй загальні модулі з soft skills, продуктивності, комунікації.
+Якщо є посада - створюй модулі що поєднують загальні навички + специфічні для посади.`;
 
     const userPrompt = `Створи персоналізовані навчальні модулі для цього користувача.
 Кожен модуль має містити структурований контент (текст, відео, квізи, практичні завдання).
 Обов'язково включи посилання на реальні відео-уроки з YouTube, корисні статті та інструменти.
 Використовуй матеріали організації де це можливо.
+
+${preferences?.preferred_topics && Array.isArray(preferences.preferred_topics) && preferences.preferred_topics.length > 0 ? `Обов'язково включи ці теми: ${preferences.preferred_topics.join(', ')}` : ''}
+${userPositions && userPositions.length > 0 ? `Врахуй специфіку посади: ${userPositions.map((p: any) => p.positions?.name).join(', ')}` : 'Створи універсальні модулі для розвитку soft skills'}
 
 Формат відповіді:
 {

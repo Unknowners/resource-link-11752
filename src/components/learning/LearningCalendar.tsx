@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Clock, Bell, X, CheckCircle2 } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Bell, X, CheckCircle2, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, parseISO, isSameDay } from "date-fns";
@@ -86,11 +86,63 @@ export function LearningCalendar() {
 
       if (error) throw error;
 
-      toast.success("Сесію завершено!");
+      toast.success("Сесію позначено як завершену");
       loadSchedule();
     } catch (error) {
       console.error('Error completing session:', error);
-      toast.error("Помилка при завершенні");
+      toast.error("Помилка при оновленні статусу");
+    }
+  };
+
+  const exportToCalendar = () => {
+    try {
+      // Create iCal format
+      let icalContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//SkillSmith//Learning Schedule//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:SkillSmith Навчання
+X-WR-TIMEZONE:Europe/Kiev
+`;
+
+      sessions.forEach((session) => {
+        const startDate = new Date(`${session.scheduled_date}T${session.scheduled_time || '09:00'}`);
+        const endDate = new Date(startDate.getTime() + session.duration * 60000);
+        
+        const formatDateTime = (date: Date) => {
+          return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        };
+
+        icalContent += `BEGIN:VEVENT
+UID:${session.id}@skillsmith
+DTSTAMP:${formatDateTime(new Date())}
+DTSTART:${formatDateTime(startDate)}
+DTEND:${formatDateTime(endDate)}
+SUMMARY:${session.learning_modules.title}
+DESCRIPTION:Категорія: ${session.learning_modules.category}\\n${session.notes || ''}
+LOCATION:Online
+STATUS:CONFIRMED
+SEQUENCE:0
+END:VEVENT
+`;
+      });
+
+      icalContent += 'END:VCALENDAR';
+
+      // Create download
+      const blob = new Blob([icalContent], { type: 'text/calendar;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = `skillsmith-schedule-${format(new Date(), 'yyyy-MM-dd')}.ics`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success("Календар експортовано");
+    } catch (error) {
+      console.error('Error exporting calendar:', error);
+      toast.error("Помилка при експорті календаря");
     }
   };
 
@@ -139,11 +191,24 @@ export function LearningCalendar() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CalendarIcon className="h-5 w-5" />
-          Календар навчання
-        </CardTitle>
-        <CardDescription>Ваші заплановані навчальні сесії</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Календар навчання
+            </CardTitle>
+            <CardDescription>Ваші заплановані навчальні сесії</CardDescription>
+          </div>
+          <Button
+            onClick={exportToCalendar}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Експорт
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {Object.entries(sessionsByDate).map(([date, dateSessions]) => {

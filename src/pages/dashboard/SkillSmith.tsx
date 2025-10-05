@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LearningCalendar } from "@/components/learning/LearningCalendar";
-import { BookOpen, Clock, CheckCircle2, PlayCircle, Calendar, Loader2, Sparkles, ArrowRight } from "lucide-react";
+import { LearningPreferencesDialog } from "@/components/learning/LearningPreferencesDialog";
+import { BookOpen, Clock, CheckCircle2, PlayCircle, Calendar, Loader2, Sparkles, ArrowRight, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -26,6 +27,7 @@ export default function SkillSmith() {
   const [modules, setModules] = useState<Module[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -166,24 +168,40 @@ export default function SkillSmith() {
             Персональне навчання та розвиток навичок на основі AI
           </p>
         </div>
-        <Button 
-          onClick={generateModules}
-          disabled={isGenerating}
-          className="gap-2"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Генерується...
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-4 w-4" />
-              Згенерувати модулі
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => setPreferencesOpen(true)}
+            variant="outline"
+            className="gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Налаштування
+          </Button>
+          <Button 
+            onClick={generateModules}
+            disabled={isGenerating}
+            className="gap-2"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Генерується...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                Згенерувати модулі
+              </>
+            )}
+          </Button>
+        </div>
       </div>
+
+      <LearningPreferencesDialog 
+        open={preferencesOpen}
+        onOpenChange={setPreferencesOpen}
+        onSaved={loadModules}
+      />
 
       <Tabs defaultValue="modules" className="w-full">
         <TabsList>
