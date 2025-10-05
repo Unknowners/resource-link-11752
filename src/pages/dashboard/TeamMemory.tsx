@@ -581,18 +581,25 @@ export default function TeamMemory() {
       </div>
 
       {/* Spin Dialog */}
-      <Dialog open={isSpinDialogOpen} onOpenChange={setIsSpinDialogOpen}>
+      <Dialog open={isSpinDialogOpen || spinning} onOpenChange={(open) => {
+        if (!spinning) setIsSpinDialogOpen(open);
+      }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Барабан обрав ідею!
+              {spinning ? "Крутимо барабан..." : "Барабан обрав ідею!"}
             </DialogTitle>
           </DialogHeader>
 
           {/* Spin Animation */}
           {spinning && (
-            <SpinAnimation isSpinning={spinning} />
+            <div className="py-8">
+              <SpinAnimation isSpinning={spinning} />
+              <p className="text-center text-muted-foreground mt-4">
+                Обираємо випадкову ідею...
+              </p>
+            </div>
           )}
 
           {selectedIdea && !spinning && (
