@@ -504,12 +504,12 @@ export default function TeamMemory() {
                   </div>
                   <div>
                     <Label htmlFor="project">Проєкт (опціонально)</Label>
-                    <Select value={newIdea.project_id} onValueChange={(value) => setNewIdea({ ...newIdea, project_id: value })}>
+                    <Select value={newIdea.project_id || "none"} onValueChange={(value) => setNewIdea({ ...newIdea, project_id: value === "none" ? "" : value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Виберіть проєкт" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Без проєкту</SelectItem>
+                        <SelectItem value="none">Без проєкту</SelectItem>
                         {projects.map((project) => (
                           <SelectItem key={project.id} value={project.id}>
                             {project.name}
