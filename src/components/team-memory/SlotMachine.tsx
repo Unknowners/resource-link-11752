@@ -11,6 +11,7 @@ interface SlotMachineProps {
 
 export const SlotMachine = ({ items, onResult, spinning: externalSpinning }: SlotMachineProps) => {
   const [spinning, setSpinning] = useState(false);
+  const [hasSpun, setHasSpun] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const reelRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
@@ -30,6 +31,7 @@ export const SlotMachine = ({ items, onResult, spinning: externalSpinning }: Slo
     if (spinning || items.length === 0) return;
 
     setSpinning(true);
+    setHasSpun(true);
     const duration = 3000 + Math.random() * 1000; // 3-4 seconds
     const startTime = Date.now();
     
@@ -145,7 +147,7 @@ export const SlotMachine = ({ items, onResult, spinning: externalSpinning }: Slo
         </div>
 
         {/* Current Selection Display */}
-        {!spinning && items.length > 0 && (
+        {!spinning && hasSpun && items.length > 0 && (
           <div className="text-center animate-fade-in">
             <p className="text-sm text-muted-foreground mb-1">Вибрано:</p>
             <p className="text-lg font-bold text-primary">{items[selectedIndex]}</p>
