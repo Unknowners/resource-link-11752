@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Clock, CheckCircle2, PlayCircle, Calendar, Loader2, Sparkles } from "lucide-react";
+import { BookOpen, Clock, CheckCircle2, PlayCircle, Calendar, Loader2, Sparkles, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -19,6 +20,7 @@ interface Module {
 }
 
 export default function SkillSmith() {
+  const navigate = useNavigate();
   const [modules, setModules] = useState<Module[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -257,27 +259,26 @@ export default function SkillSmith() {
                 </div>
               </CardHeader>
               <CardContent>
-                {module.completed ? (
-                  <Button variant="outline" className="w-full" disabled>
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Завершено
+                <div className="space-y-2">
+                  <Button
+                    onClick={() => navigate(`/app/skillsmith/${module.id}`)}
+                    className="w-full"
+                  >
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    Переглянути матеріали
+                    <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
-                ) : (
-                  <div className="flex gap-2">
-                    <Button 
-                      className="flex-1"
+                  {!module.completed && (
+                    <Button
                       onClick={() => markAsCompleted(module.id)}
+                      className="w-full"
+                      variant="outline"
                     >
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
                       Завершити
                     </Button>
-                    {module.resources && module.resources.length > 0 && (
-                      <Button variant="outline" size="icon" title="Ресурси">
-                        <BookOpen className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}

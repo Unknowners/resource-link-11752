@@ -20,6 +20,7 @@ import TermsOfUse from "./pages/TermsOfUse";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import KnowledgeBase from "./pages/dashboard/KnowledgeBase";
 import SkillSmith from "./pages/dashboard/SkillSmith";
+import ModuleDetail from "./pages/dashboard/ModuleDetail";
 import TeamMemory from "./pages/dashboard/TeamMemory";
 import Staff from "./pages/dashboard/Staff";
 import Groups from "./pages/dashboard/Groups";
@@ -75,6 +76,7 @@ const App = () => (
             <Route path="resources" element={<Resources />} />
             <Route path="resources/:id" element={<ResourceDetail />} />
             <Route path="skillsmith" element={<SkillSmith />} />
+            <Route path="skillsmith/:moduleId" element={<ModuleDetail />} />
             <Route path="team-memory" element={<TeamMemory />} />
             <Route path="profile" element={<Profile />} />
             
