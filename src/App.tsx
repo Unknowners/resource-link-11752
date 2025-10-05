@@ -19,6 +19,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import KnowledgeBase from "./pages/dashboard/KnowledgeBase";
+import VideoOnboarding from "./pages/dashboard/VideoOnboarding";
 import SkillSmith from "./pages/dashboard/SkillSmith";
 import ModuleDetail from "./pages/dashboard/ModuleDetail";
 import TeamMemory from "./pages/dashboard/TeamMemory";
@@ -75,6 +76,7 @@ const App = () => (
             <Route index element={<KnowledgeBase />} />
             <Route path="resources" element={<Resources />} />
             <Route path="resources/:id" element={<ResourceDetail />} />
+            <Route path="onboarding" element={<VideoOnboarding />} />
             <Route path="skillsmith" element={<SkillSmith />} />
             <Route path="skillsmith/:moduleId" element={<ModuleDetail />} />
             <Route path="team-memory" element={<TeamMemory />} />

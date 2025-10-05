@@ -18,11 +18,13 @@ import {
   X,
   BookOpen,
   Lightbulb,
+  Video,
 } from "lucide-react";
 
 const navigation = [
   { name: "База знань", href: "/app", icon: FileText },
   { name: "Джерела", href: "/app/resources", icon: FolderOpen },
+  { name: "Онбординг", href: "/app/onboarding", icon: Video },
   { name: "SkillSmith", href: "/app/skillsmith", icon: BookOpen },
   { name: "Team Memory", href: "/app/team-memory", icon: Lightbulb },
 ];

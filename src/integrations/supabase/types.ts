@@ -593,6 +593,53 @@ export type Database = {
           },
         ]
       }
+      onboarding_templates: {
+        Row: {
+          avatar_id: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          organization_id: string
+          script_template: string
+          title: string
+          updated_at: string | null
+          voice_id: string | null
+        }
+        Insert: {
+          avatar_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          organization_id: string
+          script_template: string
+          title: string
+          updated_at?: string | null
+          voice_id?: string | null
+        }
+        Update: {
+          avatar_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string
+          script_template?: string
+          title?: string
+          updated_at?: string | null
+          voice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           created_at: string | null
