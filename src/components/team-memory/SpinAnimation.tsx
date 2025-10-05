@@ -32,14 +32,9 @@ export const SpinAnimation = ({ isSpinning }: SpinAnimationProps) => {
       
       {/* Inner circle with slot machine effect */}
       <motion.div
-        className="absolute inset-8 rounded-full bg-gradient-to-br from-primary/10 to-primary/30 flex items-center justify-center"
+        className="absolute inset-8 rounded-full bg-gradient-to-br from-primary/10 to-primary/30 flex items-center justify-center shadow-lg"
         animate={isSpinning ? {
           scale: [1, 1.1, 1],
-          boxShadow: [
-            "0 0 20px rgba(var(--primary), 0.3)",
-            "0 0 40px rgba(var(--primary), 0.6)",
-            "0 0 20px rgba(var(--primary), 0.3)"
-          ]
         } : {}}
         transition={{
           duration: 0.5,
