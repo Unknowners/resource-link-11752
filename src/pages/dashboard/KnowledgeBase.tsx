@@ -55,7 +55,7 @@ export default function KnowledgeBase() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const MESSAGES_PER_PAGE = 20;
+  const MESSAGES_PER_PAGE = 2;
 
   useEffect(() => {
     loadConversations();
