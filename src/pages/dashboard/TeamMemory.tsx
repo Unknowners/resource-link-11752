@@ -370,6 +370,7 @@ export default function TeamMemory() {
       return;
     }
 
+    setSelectedIdea(null); // Reset selected idea
     setIsSpinDialogOpen(true);
   };
 
@@ -377,7 +378,6 @@ export default function TeamMemory() {
     const idea = ideas.find(i => i.title === selectedItem);
     if (idea) {
       setSelectedIdea(idea);
-      setSpinning(false);
     }
   };
 
@@ -590,6 +590,9 @@ export default function TeamMemory() {
               <Sparkles className="h-5 w-5 text-primary" />
               {!selectedIdea ? "Крутимо барабан..." : "Барабан обрав ідею!"}
             </DialogTitle>
+            <DialogDescription>
+              {!selectedIdea ? "Оберіть випадкову ідею з команди" : "Що робити з цією ідеєю?"}
+            </DialogDescription>
           </DialogHeader>
 
           {/* Slot Machine */}
