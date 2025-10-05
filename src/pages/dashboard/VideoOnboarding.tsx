@@ -79,10 +79,17 @@ export default function VideoOnboarding() {
 
       if (error) throw error;
 
-      if (data.video_id) {
-        setCurrentVideoId(data.video_id);
+      const videoId =
+        (data && (data as any).video_id) ??
+        (data && (data as any).data?.video_id);
+
+      if (videoId) {
+        setCurrentVideoId(videoId);
         toast.success("Відео генерується, зачекайте...");
-        checkVideoStatus(data.video_id);
+        checkVideoStatus(videoId);
+      } else {
+        console.warn("Unexpected HeyGen response (no video_id):", data);
+        throw new Error("Не вдалося отримати ідентифікатор відео");
       }
     } catch (error) {
       console.error('Error generating video:', error);
@@ -99,14 +106,32 @@ export default function VideoOnboarding() {
 
       if (error) throw error;
 
-      if (data.status === 'completed' && data.video_url) {
-        setVideoUrl(data.video_url);
-        setVideoGenerating(false);
-        toast.success("Відео готове!");
-      } else if (data.status === 'processing' || data.status === 'pending') {
+      const raw: any = data;
+      const status = (raw?.status ?? raw?.data?.status ?? raw?.data?.video?.status ?? raw?.data?.task?.status)?.toString().toLowerCase();
+      const url =
+        raw?.video_url ??
+        raw?.data?.video_url ??
+        raw?.data?.video?.url ??
+        raw?.data?.output_url ??
+        raw?.data?.result_url ??
+        raw?.data?.download_url;
+
+      console.log('HeyGen status:', status, 'url:', url, 'response:', raw);
+
+      if (['completed', 'done', 'succeeded', 'finished', 'success'].includes(status)) {
+        if (url) {
+          setVideoUrl(url);
+          setVideoGenerating(false);
+          toast.success("Відео готове!");
+        } else {
+          setTimeout(() => checkVideoStatus(videoId), 4000);
+        }
+      } else if (!status || ['processing', 'pending', 'queued', 'in_progress', 'generating', 'started', 'draft', 'synthesizing'].includes(status)) {
         setTimeout(() => checkVideoStatus(videoId), 5000);
-      } else if (data.status === 'failed') {
+      } else if (['failed', 'error', 'canceled', 'cancelled'].includes(status)) {
         throw new Error('Video generation failed');
+      } else {
+        setTimeout(() => checkVideoStatus(videoId), 6000);
       }
     } catch (error) {
       console.error('Error checking video status:', error);
