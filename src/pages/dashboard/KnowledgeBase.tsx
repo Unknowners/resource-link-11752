@@ -3,11 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Send, Sparkles, Loader2, ExternalLink, Plus, MessageSquare, Trash2 } from "lucide-react";
+import { Send, Sparkles, Loader2, ExternalLink, Plus, MessageSquare, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 interface Source {
   id: string;
@@ -50,6 +51,7 @@ export default function KnowledgeBase() {
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [oldestMessageTimestamp, setOldestMessageTimestamp] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const topObserverRef = useRef<HTMLDivElement>(null);
@@ -343,49 +345,92 @@ export default function KnowledgeBase() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
-      <div className="w-64 border-r bg-card p-4 flex flex-col gap-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold">База знань</h2>
-        </div>
-        
-        <Button onClick={createNewConversation} className="w-full justify-start gap-2">
-          <Plus className="h-4 w-4" />
-          Нова розмова
-        </Button>
-
-        <Separator />
-
-        <ScrollArea className="flex-1 -mr-4 pr-4">
-          <div className="space-y-2">
-            {conversations.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => loadConversation(conv.id)}
-                className={`w-full text-left p-3 rounded-lg hover:bg-accent transition-colors group flex items-center justify-between ${
-                  conversationId === conv.id ? 'bg-accent' : ''
-                }`}
-              >
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <MessageSquare className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                  <span className="text-sm truncate">{conv.title}</span>
+    <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-4rem)]">
+      <ResizablePanel 
+        defaultSize={20} 
+        minSize={sidebarCollapsed ? 0 : 15} 
+        maxSize={30}
+        collapsible={true}
+        onCollapse={() => setSidebarCollapsed(true)}
+        onExpand={() => setSidebarCollapsed(false)}
+      >
+        <div className="h-full bg-gradient-to-b from-card to-card/50 border-r flex flex-col">
+          <div className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 text-white" />
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => deleteConversation(conv.id, e)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </button>
-            ))}
-          </div>
-        </ScrollArea>
-      </div>
+                {!sidebarCollapsed && <h2 className="font-semibold">Історія</h2>}
+              </div>
+            </div>
+            
+            {!sidebarCollapsed && (
+              <Button 
+                onClick={createNewConversation} 
+                className="w-full justify-start gap-2 bg-primary/10 hover:bg-primary/20 text-primary border-primary/20"
+                variant="outline"
+              >
+                <Plus className="h-4 w-4" />
+                Нова розмова
+              </Button>
+            )}
 
-      <div className="flex-1 flex flex-col">
+            {sidebarCollapsed && (
+              <Button 
+                onClick={createNewConversation} 
+                size="icon"
+                className="w-full bg-primary/10 hover:bg-primary/20 text-primary"
+                variant="outline"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          <Separator className="opacity-50" />
+
+          <ScrollArea className="flex-1 px-3 py-2">
+            <div className="space-y-1">
+              {conversations.map((conv) => (
+                <button
+                  key={conv.id}
+                  onClick={() => loadConversation(conv.id)}
+                  className={`w-full text-left p-2 rounded-lg transition-all group flex items-center justify-between ${
+                    conversationId === conv.id 
+                      ? 'bg-primary/10 border border-primary/20' 
+                      : 'hover:bg-accent/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <MessageSquare className={`h-4 w-4 flex-shrink-0 ${
+                      conversationId === conv.id ? 'text-primary' : 'text-muted-foreground'
+                    }`} />
+                    {!sidebarCollapsed && (
+                      <span className="text-sm truncate">{conv.title}</span>
+                    )}
+                  </div>
+                  {!sidebarCollapsed && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => deleteConversation(conv.id, e)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      </ResizablePanel>
+
+      <ResizableHandle withHandle />
+
+      <ResizablePanel defaultSize={80}>
+        <div className="flex-1 flex flex-col h-full">
         <Card className="h-full flex flex-col overflow-hidden border-0 rounded-none">
         <ScrollArea className="flex-1 p-4 sm:p-6" ref={scrollAreaRef}>
           {loadingHistory ? (
@@ -520,7 +565,8 @@ export default function KnowledgeBase() {
           </div>
         </div>
       </Card>
-      </div>
-    </div>
+        </div>
+      </ResizablePanel>
+    </ResizablePanelGroup>
   );
 }
