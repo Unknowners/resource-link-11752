@@ -13,12 +13,48 @@ export default function VideoOnboarding() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadTemplate();
+    checkExistingVideo();
   }, []);
 
-  const loadTemplate = async () => {
+  const checkExistingVideo = async () => {
     try {
       setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Check if video already exists
+      const { data: existingVideo } = await supabase
+        .from('onboarding_videos')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingVideo?.status === 'completed' && existingVideo?.video_url) {
+        // Video is ready - display it
+        setVideoUrl(existingVideo.video_url);
+        setVideoGenerating(false);
+        setLoading(false);
+      } else if (existingVideo?.status === 'processing' && existingVideo?.provider_video_id) {
+        // Video is being generated - continue polling
+        setVideoGenerating(true);
+        setCurrentVideoId(existingVideo.provider_video_id);
+        setLoading(false);
+        checkVideoStatus(existingVideo.provider_video_id);
+      } else {
+        // No video or failed - start generation
+        await startVideoGeneration();
+      }
+    } catch (error) {
+      console.error('Error checking video:', error);
+      toast.error("Помилка перевірки відео");
+      setLoading(false);
+    }
+  };
+
+  const startVideoGeneration = async () => {
+    try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -42,40 +78,40 @@ export default function VideoOnboarding() {
         .eq('is_active', true)
         .maybeSingle();
 
+      let script = '';
       if (template) {
-        // Replace variables in template
-        let script = template.script_template;
+        script = template.script_template;
         script = script.replace(/\{first_name\}/g, profile.first_name || '');
         script = script.replace(/\{last_name\}/g, profile.last_name || '');
         script = script.replace(/\{company\}/g, profile.company || '');
-        
-        setScriptText(script);
       } else {
-        // Default message if no template
-        setScriptText(`Вітаємо, ${profile.first_name || 'користувач'}! Ласкаво просимо до нашої команди.`);
+        script = `Вітаємо, ${profile.first_name || 'користувач'}! Ласкаво просимо до нашої команди.`;
       }
+
+      setScriptText(script);
+      setLoading(false);
+      
+      // Start generation
+      await generateVideo(script, profile.organization_id);
     } catch (error) {
-      console.error('Error loading template:', error);
-      toast.error("Помилка завантаження шаблону");
-    } finally {
+      console.error('Error starting generation:', error);
+      toast.error("Помилка запуску генерації");
       setLoading(false);
     }
   };
 
-  const generateVideo = async () => {
-    if (!scriptText.trim()) {
-      toast.error("Текст для відео відсутній");
-      return;
-    }
-
+  const generateVideo = async (text: string, organizationId: string) => {
     setVideoGenerating(true);
     setVideoUrl(null);
     setCurrentVideoId(null);
 
     try {
-      console.log('Calling generate-heygen-video with text:', scriptText);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      console.log('Calling generate-heygen-video with text:', text);
       const { data, error } = await supabase.functions.invoke('generate-heygen-video', {
-        body: { text: scriptText, language: 'uk' }
+        body: { text, language: 'uk' }
       });
 
       console.log('HeyGen generation response:', { data, error });
@@ -90,6 +126,18 @@ export default function VideoOnboarding() {
         (data && (data as any).data?.video_id);
 
       if (videoId) {
+        // Save to database
+        await supabase
+          .from('onboarding_videos')
+          .insert({
+            user_id: user.id,
+            organization_id: organizationId,
+            provider_video_id: videoId,
+            provider: 'heygen',
+            script: text,
+            status: 'processing'
+          });
+
         setCurrentVideoId(videoId);
         toast.success("Відео генерується, зачекайте...");
         checkVideoStatus(videoId);
@@ -135,6 +183,19 @@ export default function VideoOnboarding() {
 
       if (['completed', 'done', 'succeeded', 'finished', 'success'].includes(status)) {
         if (url) {
+          // Update database
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase
+              .from('onboarding_videos')
+              .update({
+                status: 'completed',
+                video_url: url
+              })
+              .eq('provider_video_id', videoId)
+              .eq('user_id', user.id);
+          }
+          
           setVideoUrl(url);
           setVideoGenerating(false);
           toast.success("Відео готове!");
@@ -184,53 +245,20 @@ export default function VideoOnboarding() {
           </div>
         ) : (
           <div className="max-w-3xl mx-auto space-y-6">
-            <div className="text-center space-y-3">
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <Video className="h-8 w-8 text-white" />
+            {videoGenerating && (
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 text-white animate-spin" />
+                </div>
+                <div>
+                  <h2 className="font-display text-2xl mb-2">Генерація відео</h2>
+                  <p className="text-muted-foreground">
+                    Ваше персоналізоване вітальне відео створюється...<br />
+                    Це може зайняти кілька хвилин.
+                  </p>
+                </div>
               </div>
-              <h2 className="font-display text-2xl">Вітальне відео</h2>
-              <p className="text-muted-foreground">
-                Згенеруйте персоналізоване відео-привітання з AI-аватаром
-              </p>
-            </div>
-
-            {scriptText && (
-              <Card className="p-4 bg-secondary/50">
-                <p className="text-sm font-medium mb-2">Текст відео:</p>
-                <p className="text-sm text-muted-foreground">{scriptText}</p>
-              </Card>
             )}
-
-            <div className="flex gap-3">
-              <Button
-                onClick={generateVideo}
-                disabled={videoGenerating || !scriptText.trim()}
-                className="flex-1 h-12"
-                size="lg"
-              >
-                {videoGenerating ? (
-                  <>
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    Генерується відео...
-                  </>
-                ) : (
-                  <>
-                    <Video className="h-5 w-5 mr-2" />
-                    Згенерувати відео
-                  </>
-                )}
-              </Button>
-
-              <Button
-                variant="outline"
-                size="lg"
-                className="h-12"
-                onClick={loadTemplate}
-                disabled={loading}
-              >
-                <RefreshCw className="h-5 w-5" />
-              </Button>
-            </div>
 
             {videoUrl && (
               <Card className="p-4 space-y-3 border-2 border-primary/20">
