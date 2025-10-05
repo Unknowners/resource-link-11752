@@ -408,10 +408,10 @@ export default function ModuleDetail() {
                         <div className="flex-1">
                           <h4 className="font-medium mb-1">{resource.name}</h4>
                           <p className="text-sm text-muted-foreground">
-                            Тип: {resource.type === "internal" ? "Внутрішній матеріал" : "Зовнішнє посилання"}
+                            Тип: {resource.type}
                           </p>
                         </div>
-                        {resource.type === "external" && (
+                        {resource.url && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -420,9 +420,6 @@ export default function ModuleDetail() {
                             <ExternalLink className="h-4 w-4 mr-2" />
                             Відкрити
                           </Button>
-                        )}
-                        {resource.type === "internal" && (
-                          <Badge variant="secondary">Доступно в системі</Badge>
                         )}
                       </div>
                     </Card>
