@@ -649,30 +649,80 @@ export default function TeamMemory() {
 
       {/* Comment Dialog */}
       <Dialog open={isCommentDialogOpen} onOpenChange={setIsCommentDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Розвинути ідею</DialogTitle>
           </DialogHeader>
           {selectedIdea && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold">{selectedIdea.title}</h3>
-                <p className="text-sm text-muted-foreground mt-2">{selectedIdea.content}</p>
+            <ScrollArea className="max-h-[60vh] pr-4">
+              <div className="space-y-4">
+                {/* Idea Card */}
+                <Card className="bg-secondary/50">
+                  <CardHeader>
+                    <CardTitle className="text-base">{selectedIdea.title}</CardTitle>
+                    <div className="flex items-center gap-2 flex-wrap mt-2">
+                      {getStatusBadge(selectedIdea.status)}
+                      <Badge variant="outline" className="text-xs">
+                        {selectedIdea.author}
+                      </Badge>
+                      {selectedIdea.project_name && (
+                        <Badge variant="secondary" className="text-xs">
+                          {selectedIdea.project_name}
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className="flex items-center gap-1">
+                        <Star className="h-3 w-3 text-yellow-500" />
+                        {selectedIdea.karma} карма
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">{selectedIdea.content}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {formatDistanceToNow(selectedIdea.createdAt, { addSuffix: true, locale: uk })}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Existing Comments */}
+                {selectedIdea.comments && selectedIdea.comments.length > 0 && (
+                  <div className="space-y-3">
+                    <Label className="text-base">Коментарі ({selectedIdea.comments.length})</Label>
+                    {selectedIdea.comments.map((comment, index) => (
+                      <Card key={index} className="border-l-4 border-l-primary/50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="secondary" className="text-xs">
+                              {comment.user_name}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: uk })}
+                            </span>
+                          </div>
+                          <p className="text-sm">{comment.text}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add New Comment */}
+                <div className="space-y-2">
+                  <Label htmlFor="comment">Додати коментар</Label>
+                  <Textarea
+                    id="comment"
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Додайте свої думки щодо цієї ідеї..."
+                    rows={4}
+                  />
+                  <Button onClick={handleAddComment} className="w-full" disabled={!newComment.trim()}>
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Додати коментар (+1 карма)
+                  </Button>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="comment">Ваш коментар</Label>
-                <Textarea
-                  id="comment"
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Додайте свої думки щодо цієї ідеї..."
-                  rows={4}
-                />
-              </div>
-              <Button onClick={handleAddComment} className="w-full">
-                Додати коментар
-              </Button>
-            </div>
+            </ScrollArea>
           )}
         </DialogContent>
       </Dialog>
