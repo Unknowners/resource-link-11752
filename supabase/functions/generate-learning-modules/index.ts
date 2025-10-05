@@ -28,6 +28,9 @@ serve(async (req) => {
       .eq('organization_id', organizationId);
 
     console.log('User positions:', userPositions?.length || 0);
+    if (userPositions && userPositions.length > 0) {
+      console.log('Position names:', userPositions.map((p: any) => p.positions?.name).join(', '));
+    }
 
     // Get user's learning preferences
     const { data: preferences } = await supabase
@@ -37,6 +40,11 @@ serve(async (req) => {
       .single();
 
     console.log('User preferences:', preferences ? 'Found' : 'Not found');
+    if (preferences) {
+      console.log('Preferred topics:', preferences.preferred_topics?.join(', ') || 'None');
+      console.log('Learning pace:', preferences.learning_pace);
+      console.log('Preferred duration:', preferences.preferred_duration);
+    }
 
     // Get organization materials
     const { data: orgMaterials } = await supabase
@@ -135,6 +143,16 @@ serve(async (req) => {
     const userPrompt = `Створи персоналізовані навчальні модулі для цього користувача.
 Кожен модуль має містити структурований контент (текст, відео, квізи, практичні завдання).
 
+${preferences?.preferred_topics && Array.isArray(preferences.preferred_topics) && preferences.preferred_topics.length > 0 ? `
+🎯 ПРІОРИТЕТ: Користувач ОБОВ'ЯЗКОВО хоче вивчити ці теми: ${preferences.preferred_topics.join(', ')}
+Всі модулі повинні бути про ці теми або тісно з ними пов'язані!
+` : ''}
+
+${userPositions && userPositions.length > 0 ? `
+💼 ВАЖЛИВА ІНФОРМАЦІЯ: Посада користувача: ${userPositions.map((p: any) => p.positions?.name).join(', ')}
+Модулі мають бути адаптовані під специфіку цієї посади та включати практичні навички для неї.
+` : 'Створи універсальні модулі для розвитку soft skills'}
+
 КРИТИЧНО ВАЖЛИВІ ПРАВИЛА ДЛЯ ПОСИЛАНЬ:
 1. ВСІ URL мають бути РЕАЛЬНИМИ та РОБОЧИМИ
 2. Для відео: ТІЛЬКИ існуючі YouTube відео (youtube.com/watch?v=...)
@@ -142,9 +160,6 @@ serve(async (req) => {
 4. ЗАБОРОНЕНО генерувати внутрішні посилання (internal.*, intranet.*, *.organization.com)
 5. Якщо не знаєш реального посилання - НЕ додавай ресурс взагалі
 6. resources масив може бути ПОРОЖНІМ, якщо немає перевірених посилань
-
-${preferences?.preferred_topics && Array.isArray(preferences.preferred_topics) && preferences.preferred_topics.length > 0 ? `Обов'язково включи ці теми: ${preferences.preferred_topics.join(', ')}` : ''}
-${userPositions && userPositions.length > 0 ? `Врахуй специфіку посади: ${userPositions.map((p: any) => p.positions?.name).join(', ')}` : 'Створи універсальні модулі для розвитку soft skills'}
 
 Формат відповіді:
 {
