@@ -430,9 +430,8 @@ export default function KnowledgeBase() {
       <ResizableHandle withHandle />
 
       <ResizablePanel defaultSize={80}>
-        <div className="flex-1 flex flex-col h-full">
-        <Card className="h-full flex flex-col overflow-hidden border-0 rounded-none">
-        <ScrollArea className="flex-1 p-4 sm:p-6" ref={scrollAreaRef}>
+        <div className="h-full flex flex-col">
+          <ScrollArea className="flex-1 p-4 sm:p-6" ref={scrollAreaRef}>
           {loadingHistory ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -539,32 +538,31 @@ export default function KnowledgeBase() {
               <div ref={messagesEndRef} />
             </div>
           )}
-        </ScrollArea>
+          </ScrollArea>
 
-        <div className="border-t p-4">
-          <div className="max-w-4xl mx-auto flex gap-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Напишіть ваше питання..."
-              disabled={isLoading}
-              className="flex-1 h-12 text-base"
-            />
-            <Button
-              onClick={() => handleSend()}
-              disabled={isLoading || !input.trim()}
-              className="h-12 px-6"
-            >
-              {isLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <Send className="h-5 w-5" />
-              )}
-            </Button>
+          <div className="border-t p-4 bg-background">
+            <div className="max-w-4xl mx-auto flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Напишіть ваше питання..."
+                disabled={isLoading}
+                className="flex-1 h-12 text-base"
+              />
+              <Button
+                onClick={() => handleSend()}
+                disabled={isLoading || !input.trim()}
+                className="h-12 px-6"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Send className="h-5 w-5" />
+                )}
+              </Button>
+            </div>
           </div>
-        </div>
-      </Card>
         </div>
       </ResizablePanel>
     </ResizablePanelGroup>
