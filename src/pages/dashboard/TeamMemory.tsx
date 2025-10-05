@@ -333,13 +333,19 @@ export default function TeamMemory() {
 
       if (error) throw error;
 
+      // Update selectedIdea with new comment
+      setSelectedIdea({
+        ...selectedIdea,
+        comments: updatedComments,
+        karma: selectedIdea.karma + 1
+      });
+
       toast({
         title: "Успіх",
-        description: "Коментар додано"
+        description: "Коментар додано (+1 карма)"
       });
 
       setNewComment("");
-      setIsCommentDialogOpen(false);
       loadIdeas();
     } catch (error) {
       console.error('Error adding comment:', error);
