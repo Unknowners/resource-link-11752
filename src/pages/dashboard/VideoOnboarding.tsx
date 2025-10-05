@@ -308,14 +308,49 @@ export default function VideoOnboarding() {
                   className="w-full rounded-lg"
                   autoPlay
                 />
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => window.open(videoUrl, '_blank')}
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Відкрити у новій вкладці
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => window.open(videoUrl, '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Відкрити у новій вкладці
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={async () => {
+                      try {
+                        const { data: { user } } = await supabase.auth.getUser();
+                        if (!user) return;
+                        
+                        const { error } = await supabase
+                          .from('onboarding_videos')
+                          .delete()
+                          .eq('user_id', user.id);
+                        
+                        if (error) {
+                          toast.error("Помилка при видаленні відео");
+                          console.error("Delete error:", error);
+                          return;
+                        }
+                        
+                        toast.success("Відео видалено. Починаємо нову генерацію...");
+                        setVideoUrl(null);
+                        setCurrentVideoId(null);
+                        setVideoGenerating(false);
+                        await checkExistingVideo();
+                      } catch (err) {
+                        console.error("Regenerate error:", err);
+                        toast.error("Помилка перегенерації");
+                      }
+                    }}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Перегенерувати
+                  </Button>
+                </div>
               </Card>
             )}
           </div>
