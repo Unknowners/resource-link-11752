@@ -477,6 +477,50 @@ export type Database = {
           },
         ]
       }
+      learning_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          learning_pace: string | null
+          organization_id: string
+          preferred_days: string[] | null
+          preferred_duration: number | null
+          preferred_topics: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          learning_pace?: string | null
+          organization_id: string
+          preferred_days?: string[] | null
+          preferred_duration?: number | null
+          preferred_topics?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          learning_pace?: string | null
+          organization_id?: string
+          preferred_days?: string[] | null
+          preferred_duration?: number | null
+          preferred_topics?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_preferences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_schedule: {
         Row: {
           created_at: string
@@ -684,6 +728,8 @@ export type Database = {
           domain: string | null
           id: string
           name: string
+          onboarding_video_url: string | null
+          onboarding_welcome_text: string | null
           plan: string | null
           slug: string
           status: string | null
@@ -694,6 +740,8 @@ export type Database = {
           domain?: string | null
           id?: string
           name: string
+          onboarding_video_url?: string | null
+          onboarding_welcome_text?: string | null
           plan?: string | null
           slug: string
           status?: string | null
@@ -704,6 +752,8 @@ export type Database = {
           domain?: string | null
           id?: string
           name?: string
+          onboarding_video_url?: string | null
+          onboarding_welcome_text?: string | null
           plan?: string | null
           slug?: string
           status?: string | null

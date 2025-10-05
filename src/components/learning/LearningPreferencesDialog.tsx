@@ -51,10 +51,11 @@ export function LearningPreferencesDialog({ open, onOpenChange, onSaved }: Learn
         .maybeSingle();
 
       if (data) {
-        setPreferredTopics((data.preferred_topics as string[]) || []);
-        setLearningPace((data.learning_pace as string) || 'moderate');
-        setPreferredDuration((data.preferred_duration as number) || 20);
-        setPreferredDays((data.preferred_days as string[]) || []);
+        const prefs = data as any;
+        setPreferredTopics(prefs.preferred_topics || []);
+        setLearningPace(prefs.learning_pace || 'moderate');
+        setPreferredDuration(prefs.preferred_duration || 20);
+        setPreferredDays(prefs.preferred_days || []);
       }
     } catch (error) {
       console.error('Error loading preferences:', error);
@@ -101,7 +102,7 @@ export function LearningPreferencesDialog({ open, onOpenChange, onSaved }: Learn
       }
 
       const { error } = await supabase
-        .from('learning_preferences')
+        .from('learning_preferences' as any)
         .upsert({
           user_id: user.id,
           organization_id: profile.organization_id,
