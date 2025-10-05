@@ -408,6 +408,75 @@ export type Database = {
           },
         ]
       }
+      learning_modules: {
+        Row: {
+          category: string
+          completed: boolean
+          completed_at: string | null
+          content: Json | null
+          created_at: string
+          description: string | null
+          difficulty: string
+          duration: number
+          id: string
+          organization_id: string
+          position_id: string | null
+          resources: Json | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          completed?: boolean
+          completed_at?: string | null
+          content?: Json | null
+          created_at?: string
+          description?: string | null
+          difficulty?: string
+          duration: number
+          id?: string
+          organization_id: string
+          position_id?: string | null
+          resources?: Json | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          completed?: boolean
+          completed_at?: string | null
+          content?: Json | null
+          created_at?: string
+          description?: string | null
+          difficulty?: string
+          duration?: number
+          id?: string
+          organization_id?: string
+          position_id?: string | null
+          resources?: Json | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_modules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_modules_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_materials: {
         Row: {
           bucket: string
@@ -464,7 +533,6 @@ export type Database = {
       organization_members: {
         Row: {
           created_at: string | null
-          custom_role_id: string | null
           id: string
           invitation_status: string | null
           organization_id: string
@@ -474,7 +542,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          custom_role_id?: string | null
           id?: string
           invitation_status?: string | null
           organization_id: string
@@ -484,7 +551,6 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          custom_role_id?: string | null
           id?: string
           invitation_status?: string | null
           organization_id?: string
@@ -494,52 +560,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "organization_members_custom_role_id_fkey"
-            columns: ["custom_role_id"]
-            isOneToOne: false
-            referencedRelation: "organization_roles"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "organization_members_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      organization_roles: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          id: string
-          name: string
-          organization_id: string
-          permissions: Json | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          name: string
-          organization_id: string
-          permissions?: Json | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          name?: string
-          organization_id?: string
-          permissions?: Json | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "organization_roles_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
