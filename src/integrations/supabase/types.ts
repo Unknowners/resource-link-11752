@@ -728,6 +728,51 @@ export type Database = {
           },
         ]
       }
+      onboarding_videos: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          organization_id: string | null
+          provider: string
+          provider_video_id: string | null
+          script: string | null
+          status: string
+          thumbnail_url: string | null
+          updated_at: string
+          user_id: string
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          organization_id?: string | null
+          provider?: string
+          provider_video_id?: string | null
+          script?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          organization_id?: string | null
+          provider?: string
+          provider_video_id?: string | null
+          script?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       organization_members: {
         Row: {
           created_at: string | null
