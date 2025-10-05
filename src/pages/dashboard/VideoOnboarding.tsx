@@ -308,35 +308,14 @@ export default function VideoOnboarding() {
                   className="w-full rounded-lg"
                   autoPlay
                 />
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => window.open(videoUrl, '_blank')}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Відкрити у новій вкладці
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={async () => {
-                      try {
-                        setVideoUrl(null);
-                        setCurrentVideoId(null);
-                        setVideoGenerating(true);
-                        toast.message("Починаємо нову генерацію відео...");
-                        await startVideoGeneration();
-                      } catch (err) {
-                        console.error("Regenerate error:", err);
-                        toast.error("Помилка перегенерації");
-                      }
-                    }}
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Перегенерувати
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => window.open(videoUrl, '_blank')}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Відкрити у новій вкладці
+                </Button>
               </Card>
             )}
           </div>
