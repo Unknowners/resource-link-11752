@@ -430,7 +430,11 @@ export default function TeamMemory() {
     );
   };
 
-  const activeIdeas = ideas.filter(idea => !idea.archived);
+  const activeIdeas = ideas.filter(idea => {
+    if (idea.archived) return false;
+    if (filterProject !== "all" && idea.project_id !== filterProject) return false;
+    return true;
+  });
   const topIdea = [...activeIdeas].sort((a, b) => b.karma - a.karma)[0];
 
   return (
@@ -563,6 +567,29 @@ export default function TeamMemory() {
           </Button>
         </div>
       </div>
+
+      {/* Top Idea Card */}
+      {topIdea && (
+        <Card className="border-2 border-primary bg-gradient-to-r from-primary/5 to-primary/10">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              💡 Ідея тижня
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <h3 className="font-semibold">{topIdea.title}</h3>
+            <p className="text-sm text-muted-foreground">{topIdea.content}</p>
+            <div className="flex items-center gap-4">
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <Star className="h-3 w-3 text-yellow-500" />
+                {topIdea.karma} карма
+              </Badge>
+              <Badge variant="outline">{topIdea.author}</Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filter */}
       <div className="flex items-center gap-4">
@@ -729,29 +756,6 @@ export default function TeamMemory() {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Top Idea Card */}
-      {topIdea && (
-        <Card className="border-2 border-primary bg-gradient-to-r from-primary/5 to-primary/10">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              💡 Ідея тижня
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <h3 className="font-semibold">{topIdea.title}</h3>
-            <p className="text-sm text-muted-foreground">{topIdea.content}</p>
-            <div className="flex items-center gap-4">
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <Star className="h-3 w-3 text-yellow-500" />
-                {topIdea.karma} карма
-              </Badge>
-              <Badge variant="outline">{topIdea.author}</Badge>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Ideas Grid */}
       {loading ? (
