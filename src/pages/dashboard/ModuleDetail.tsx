@@ -10,13 +10,19 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ArrowLeft, BookOpen, Clock, ExternalLink, FileText, CheckCircle2, Video, ClipboardList, Brain, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
+interface QuizQuestion {
+  question: string;
+  options: string[];
+  correct: number;
+}
+
 interface ContentSection {
   type: 'text' | 'video' | 'quiz' | 'practice' | 'checklist';
   title: string;
   content: string;
   duration?: number;
   url?: string;
-  items?: any[];
+  items?: QuizQuestion[] | string[];
 }
 
 interface Module {
@@ -41,9 +47,13 @@ export default function ModuleDetail() {
   const navigate = useNavigate();
   const [module, setModule] = useState<Module | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [quizScore, setQuizScore] = useState<number | null>(null);
 
   useEffect(() => {
     loadModule();
+    checkQuizStatus();
   }, [moduleId]);
 
   const loadModule = async () => {
@@ -75,8 +85,103 @@ export default function ModuleDetail() {
     }
   };
 
+  const checkQuizStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !moduleId) return;
+
+      const { data: quizResult } = await supabase
+        .from("quiz_results")
+        .select("score, total_questions, passed")
+        .eq("user_id", user.id)
+        .eq("module_id", moduleId)
+        .maybeSingle();
+
+      if (quizResult) {
+        setQuizSubmitted(true);
+        setQuizScore(quizResult.score);
+      }
+    } catch (error) {
+      console.error("Error checking quiz status:", error);
+    }
+  };
+
+  const getFinalQuiz = (): ContentSection | null => {
+    if (!module?.content || !Array.isArray(module.content)) return null;
+    const quizSections = module.content.filter(s => s.type === 'quiz');
+    return quizSections.length > 0 ? quizSections[quizSections.length - 1] : null;
+  };
+
+  const submitQuiz = async () => {
+    const finalQuiz = getFinalQuiz();
+    if (!finalQuiz || !finalQuiz.items) {
+      toast.error("Квіз не знайдено");
+      return;
+    }
+
+    const questions = finalQuiz.items as QuizQuestion[];
+    let correctCount = 0;
+
+    questions.forEach((q, idx) => {
+      if (quizAnswers[idx] === q.correct) {
+        correctCount++;
+      }
+    });
+
+    const passed = correctCount >= Math.ceil(questions.length * 0.7); // 70% to pass
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !module) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.organization_id) return;
+
+      const { error } = await supabase
+        .from("quiz_results")
+        .upsert({
+          user_id: user.id,
+          module_id: module.id,
+          organization_id: profile.organization_id,
+          answers: quizAnswers,
+          score: correctCount,
+          total_questions: questions.length,
+          passed: passed,
+        }, {
+          onConflict: 'user_id,module_id'
+        });
+
+      if (error) throw error;
+
+      setQuizSubmitted(true);
+      setQuizScore(correctCount);
+
+      if (passed) {
+        toast.success(`Вітаємо! Ви пройшли квіз (${correctCount}/${questions.length})`);
+        // Auto-complete module if quiz passed
+        markAsCompleted();
+      } else {
+        toast.error(`Недостатньо балів (${correctCount}/${questions.length}). Потрібно мінімум ${Math.ceil(questions.length * 0.7)}`);
+      }
+    } catch (error) {
+      console.error("Error submitting quiz:", error);
+      toast.error("Помилка при збереженні результатів");
+    }
+  };
+
   const markAsCompleted = async () => {
     if (!module) return;
+
+    // Check if quiz passed
+    if (!quizSubmitted || quizScore === null) {
+      toast.error("Спершу необхідно пройти фінальний квіз!");
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -219,25 +324,60 @@ export default function ModuleDetail() {
                           <div className="space-y-2">
                             {section.type === 'quiz' && (
                               <div className="space-y-3">
-                                {section.items.map((item: any, idx: number) => (
-                                  <Card key={idx} className="p-3">
-                                    <p className="font-medium text-sm mb-2">{item.question}</p>
-                                    <div className="space-y-1">
-                                      {item.options?.map((option: string, optIdx: number) => (
-                                        <div key={optIdx} className="text-sm p-2 rounded hover:bg-accent/50 cursor-pointer">
-                                          {option}
-                                        </div>
-                                      ))}
+                                {(section.items as QuizQuestion[]).map((item, idx) => (
+                                  <Card key={idx} className="p-4">
+                                    <p className="font-medium text-sm mb-3">{item.question}</p>
+                                    <div className="space-y-2">
+                                      {item.options?.map((option: string, optIdx: number) => {
+                                        const isSelected = quizAnswers[idx] === optIdx;
+                                        const isCorrect = item.correct === optIdx;
+                                        const showResult = quizSubmitted;
+
+                                        return (
+                                          <div
+                                            key={optIdx}
+                                            onClick={() => !quizSubmitted && setQuizAnswers({...quizAnswers, [idx]: optIdx})}
+                                            className={`text-sm p-3 rounded cursor-pointer transition-colors ${
+                                              isSelected ? 'bg-primary/20 border-2 border-primary' : 
+                                              'border-2 border-transparent hover:bg-accent/50'
+                                            } ${
+                                              showResult && isCorrect ? 'bg-green-500/20 border-green-500' :
+                                              showResult && isSelected && !isCorrect ? 'bg-red-500/20 border-red-500' :
+                                              ''
+                                            }`}
+                                          >
+                                            {option}
+                                            {showResult && isCorrect && <span className="ml-2">✓</span>}
+                                            {showResult && isSelected && !isCorrect && <span className="ml-2">✗</span>}
+                                          </div>
+                                        );
+                                      })}
                                     </div>
                                   </Card>
                                 ))}
+                                {!quizSubmitted && (
+                                  <Button 
+                                    onClick={submitQuiz}
+                                    disabled={Object.keys(quizAnswers).length < (section.items as QuizQuestion[]).length}
+                                    className="w-full mt-4"
+                                  >
+                                    Відправити відповіді
+                                  </Button>
+                                )}
+                                {quizSubmitted && quizScore !== null && (
+                                  <div className="mt-4 p-4 rounded bg-accent">
+                                    <p className="text-sm font-medium">
+                                      Результат: {quizScore}/{(section.items as QuizQuestion[]).length}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
                             )}
                             {(section.type === 'practice' || section.type === 'checklist') && (
                               <ul className="space-y-2">
-                                {section.items.map((item: string, idx: number) => (
+                                {(section.items as string[]).map((item: string, idx: number) => (
                                   <li key={idx} className="flex items-start gap-2 text-sm">
-                                    <CheckCircle2 className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                    <CheckCircle2 className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                                     <span>{item}</span>
                                   </li>
                                 ))}
@@ -307,9 +447,13 @@ export default function ModuleDetail() {
               Додати в календар
             </Button>
             {!module.completed ? (
-              <Button onClick={markAsCompleted} size="lg">
+              <Button 
+                onClick={markAsCompleted} 
+                size="lg"
+                disabled={!quizSubmitted || quizScore === null}
+              >
                 <CheckCircle2 className="mr-2 h-5 w-5" />
-                Позначити як завершений
+                {quizSubmitted ? "Позначити як завершений" : "Спочатку пройдіть квіз"}
               </Button>
             ) : (
               <div className="text-sm text-muted-foreground flex items-center gap-2">

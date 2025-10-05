@@ -792,6 +792,7 @@ export type Database = {
           id: string
           name: string
           organization_id: string
+          slug: string | null
           status: string | null
           updated_at: string | null
         }
@@ -801,6 +802,7 @@ export type Database = {
           id?: string
           name: string
           organization_id: string
+          slug?: string | null
           status?: string | null
           updated_at?: string | null
         }
@@ -810,12 +812,67 @@ export type Database = {
           id?: string
           name?: string
           organization_id?: string
+          slug?: string | null
           status?: string | null
           updated_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "projects_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_results: {
+        Row: {
+          answers: Json
+          completed_at: string
+          created_at: string
+          id: string
+          module_id: string
+          organization_id: string
+          passed: boolean
+          score: number
+          total_questions: number
+          user_id: string
+        }
+        Insert: {
+          answers: Json
+          completed_at?: string
+          created_at?: string
+          id?: string
+          module_id: string
+          organization_id: string
+          passed?: boolean
+          score: number
+          total_questions: number
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string
+          created_at?: string
+          id?: string
+          module_id?: string
+          organization_id?: string
+          passed?: boolean
+          score?: number
+          total_questions?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_results_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "learning_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_results_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1016,6 +1073,45 @@ export type Database = {
             columns: ["position_id"]
             isOneToOne: false
             referencedRelation: "positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_projects: {
+        Row: {
+          assigned_at: string | null
+          id: string
+          organization_id: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          id?: string
+          organization_id: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          id?: string
+          organization_id?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_projects_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_projects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
