@@ -53,8 +53,14 @@ export default function KnowledgeBase() {
   const [videoGenerating, setVideoGenerating] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [oldestMessageTimestamp, setOldestMessageTimestamp] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const topObserverRef = useRef<HTMLDivElement>(null);
+
+  const MESSAGES_PER_PAGE = 10;
 
   useEffect(() => {
     loadConversations();
@@ -95,27 +101,35 @@ export default function KnowledgeBase() {
     }
   };
 
-  const loadConversation = async (convId: string) => {
+  const loadConversation = async (convId: string, isInitial = true) => {
     try {
       setLoadingHistory(true);
       setConversationId(convId);
       setShowWelcome(false);
 
-      const { data: messagesData } = await supabase
+      // Load last 10 messages initially
+      const { data: messagesData, error } = await supabase
         .from('chat_messages')
         .select('*')
         .eq('conversation_id', convId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false })
+        .limit(MESSAGES_PER_PAGE);
+
+      if (error) throw error;
 
       if (messagesData && messagesData.length > 0) {
-        const loadedMessages: Message[] = messagesData.map(msg => ({
+        const loadedMessages: Message[] = messagesData.reverse().map(msg => ({
           role: msg.role as "user" | "assistant",
           content: msg.content,
           sources: msg.sources ? (msg.sources as any) : undefined,
         }));
+        
         setMessages(loadedMessages);
+        setOldestMessageTimestamp(messagesData[messagesData.length - 1].created_at);
+        setHasMoreMessages(messagesData.length === MESSAGES_PER_PAGE);
       } else {
         setMessages([]);
+        setHasMoreMessages(false);
       }
     } catch (error) {
       console.error('Error loading conversation:', error);
@@ -124,6 +138,61 @@ export default function KnowledgeBase() {
       setLoadingHistory(false);
     }
   };
+
+  const loadMoreMessages = async () => {
+    if (!conversationId || !oldestMessageTimestamp || loadingMore || !hasMoreMessages) return;
+
+    try {
+      setLoadingMore(true);
+
+      const { data: messagesData, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .lt('created_at', oldestMessageTimestamp)
+        .order('created_at', { ascending: false })
+        .limit(MESSAGES_PER_PAGE);
+
+      if (error) throw error;
+
+      if (messagesData && messagesData.length > 0) {
+        const loadedMessages: Message[] = messagesData.reverse().map(msg => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+          sources: msg.sources ? (msg.sources as any) : undefined,
+        }));
+        
+        setMessages(prev => [...loadedMessages, ...prev]);
+        setOldestMessageTimestamp(messagesData[messagesData.length - 1].created_at);
+        setHasMoreMessages(messagesData.length === MESSAGES_PER_PAGE);
+      } else {
+        setHasMoreMessages(false);
+      }
+    } catch (error) {
+      console.error('Error loading more messages:', error);
+      toast.error("Помилка завантаження повідомлень");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Intersection observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMoreMessages && !loadingMore) {
+          loadMoreMessages();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (topObserverRef.current) {
+      observer.observe(topObserverRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMoreMessages, loadingMore, oldestMessageTimestamp]);
 
   const createNewConversation = async () => {
     try {
@@ -431,6 +500,15 @@ export default function KnowledgeBase() {
             </div>
           ) : (
             <div className="space-y-6 max-w-4xl mx-auto">
+              {/* Infinite scroll trigger at top */}
+              <div ref={topObserverRef} className="h-4">
+                {loadingMore && (
+                  <div className="flex justify-center py-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+
               {messages.map((message, index) => (
               <div
                 key={index}
