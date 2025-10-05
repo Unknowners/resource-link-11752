@@ -70,31 +70,35 @@ serve(async (req) => {
     }
 
     // Create video generation request
+    const requestBody = {
+      video_inputs: [{
+        character: {
+          type: 'avatar',
+          avatar_id: avatarId || 'Anna_public_3_20240108',
+          avatar_style: 'normal',
+        },
+        voice: {
+          type: 'text',
+          input_text: text,
+          voice_id: resolvedVoiceId,
+        },
+      }],
+      dimension: {
+        width: 1280,
+        height: 720,
+      },
+      aspect_ratio: '16:9',
+    };
+
+    console.log('Sending HeyGen request:', JSON.stringify(requestBody, null, 2));
+
     const response = await fetch('https://api.heygen.com/v2/video/generate', {
       method: 'POST',
       headers: {
         'X-Api-Key': heygenApiKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        video_inputs: [{
-          character: {
-            type: 'avatar',
-            avatar_id: avatarId || 'Anna_public_3_20240108',
-            avatar_style: 'normal',
-          },
-          voice: {
-            type: 'text',
-            input_text: text,
-            voice_id: resolvedVoiceId,
-          },
-        }],
-        dimension: {
-          width: 1280,
-          height: 720,
-        },
-        aspect_ratio: '16:9',
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

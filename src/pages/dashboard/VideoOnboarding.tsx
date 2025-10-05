@@ -104,8 +104,16 @@ export default function VideoOnboarding() {
     }
   };
 
-  const checkVideoStatus = async (videoId: string) => {
+  const checkVideoStatus = async (videoId: string, attemptCount = 0) => {
+    const MAX_ATTEMPTS = 60; // 5 минут максимум (60 * 5 секунд)
+    
     try {
+      if (attemptCount >= MAX_ATTEMPTS) {
+        toast.error("Час очікування відео минув. Спробуйте ще раз або зверніться до підтримки.");
+        setVideoGenerating(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('check-heygen-video', {
         body: { videoId }
       });
@@ -114,6 +122,7 @@ export default function VideoOnboarding() {
 
       const raw: any = data;
       const status = (raw?.status ?? raw?.data?.status ?? raw?.data?.video?.status ?? raw?.data?.task?.status)?.toString().toLowerCase();
+      const errorData = raw?.error ?? raw?.data?.error;
       const url =
         raw?.video_url ??
         raw?.data?.video_url ??
@@ -122,7 +131,7 @@ export default function VideoOnboarding() {
         raw?.data?.result_url ??
         raw?.data?.download_url;
 
-      console.log('HeyGen status:', status, 'url:', url, 'response:', raw);
+      console.log(`HeyGen check #${attemptCount + 1}:`, { status, url, error: errorData });
 
       if (['completed', 'done', 'succeeded', 'finished', 'success'].includes(status)) {
         if (url) {
@@ -130,17 +139,20 @@ export default function VideoOnboarding() {
           setVideoGenerating(false);
           toast.success("Відео готове!");
         } else {
-          setTimeout(() => checkVideoStatus(videoId), 4000);
+          setTimeout(() => checkVideoStatus(videoId, attemptCount + 1), 4000);
         }
-      } else if (!status || ['processing', 'pending', 'queued', 'in_progress', 'generating', 'started', 'draft', 'synthesizing', 'waiting'].includes(status)) {
-        // "waiting" is a valid status from HeyGen
-        setTimeout(() => checkVideoStatus(videoId), 5000);
       } else if (['failed', 'error', 'canceled', 'cancelled'].includes(status)) {
-        throw new Error('Video generation failed');
+        const errorMsg = errorData?.message || errorData?.detail || 'Генерація відео не вдалася';
+        console.error('HeyGen generation failed:', errorData);
+        toast.error(`Помилка генерації: ${errorMsg}`);
+        setVideoGenerating(false);
+      } else if (!status || ['processing', 'pending', 'queued', 'in_progress', 'generating', 'started', 'draft', 'synthesizing', 'waiting'].includes(status)) {
+        // Continue polling
+        setTimeout(() => checkVideoStatus(videoId, attemptCount + 1), 5000);
       } else {
-        // Unknown status - continue polling
+        // Unknown status - continue polling but log warning
         console.warn('Unknown HeyGen status:', status);
-        setTimeout(() => checkVideoStatus(videoId), 6000);
+        setTimeout(() => checkVideoStatus(videoId, attemptCount + 1), 6000);
       }
     } catch (error) {
       console.error('Error checking video status:', error);
