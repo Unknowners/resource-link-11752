@@ -73,10 +73,10 @@ const App = () => (
 
           {/* Organization Portal (/app) */}
           <Route path="/app" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<KnowledgeBase />} />
+            <Route index element={<VideoOnboarding />} />
+            <Route path="knowledge" element={<KnowledgeBase />} />
             <Route path="resources" element={<Resources />} />
             <Route path="resources/:id" element={<ResourceDetail />} />
-            <Route path="onboarding" element={<VideoOnboarding />} />
             <Route path="skillsmith" element={<SkillSmith />} />
             <Route path="skillsmith/:moduleId" element={<ModuleDetail />} />
             <Route path="team-memory" element={<TeamMemory />} />
