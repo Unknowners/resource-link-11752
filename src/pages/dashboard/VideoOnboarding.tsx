@@ -126,11 +126,14 @@ export default function VideoOnboarding() {
         } else {
           setTimeout(() => checkVideoStatus(videoId), 4000);
         }
-      } else if (!status || ['processing', 'pending', 'queued', 'in_progress', 'generating', 'started', 'draft', 'synthesizing'].includes(status)) {
+      } else if (!status || ['processing', 'pending', 'queued', 'in_progress', 'generating', 'started', 'draft', 'synthesizing', 'waiting'].includes(status)) {
+        // "waiting" is a valid status from HeyGen
         setTimeout(() => checkVideoStatus(videoId), 5000);
       } else if (['failed', 'error', 'canceled', 'cancelled'].includes(status)) {
         throw new Error('Video generation failed');
       } else {
+        // Unknown status - continue polling
+        console.warn('Unknown HeyGen status:', status);
         setTimeout(() => checkVideoStatus(videoId), 6000);
       }
     } catch (error) {
