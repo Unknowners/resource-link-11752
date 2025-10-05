@@ -82,6 +82,8 @@ export default function VideoOnboarding() {
         .eq('id', user.id)
         .maybeSingle();
 
+      console.log('User profile:', profile);
+
       if (!profile?.organization_id) {
         toast.error("Організація не знайдена");
         return;
@@ -95,14 +97,18 @@ export default function VideoOnboarding() {
         .eq('is_active', true)
         .maybeSingle();
 
+      console.log('Active template:', template);
+
       let script = '';
       if (template) {
         script = template.script_template;
         script = script.replace(/\{first_name\}/g, profile.first_name || '');
         script = script.replace(/\{last_name\}/g, profile.last_name || '');
         script = script.replace(/\{company\}/g, profile.company || '');
+        console.log('Generated script from template:', script);
       } else {
         script = `Вітаємо, ${profile.first_name || 'користувач'}! Ласкаво просимо до нашої команди.`;
+        console.log('Using default script (no template found):', script);
       }
 
       setScriptText(script);
